@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
 import confetti from 'canvas-confetti';
+import { openWhatsAppDirect } from '../utils/whatsapp';
 
 export default function RoleWaliSantri() {
   const {
@@ -103,15 +104,15 @@ export default function RoleWaliSantri() {
       setTopupProof(null);
       setTopupNote('');
 
-      // Create WhatsApp confirmation message link
-      const waText = encodeURIComponent(
+      // Create WhatsApp confirmation message and launch directly
+      const waMessage = 
         `Assalamu'alaikum Bendahara Ma'had Imam Syafi'i Brebes.\n` +
         `Saya Wali Santri dari ananda *${currentChild.name}* (NIS: ${currentChild.nis}).\n` +
         `Telah melakukan transfer Uang Saku Santri sebesar *${formatRupiah(req.totalTransfer)}* ke rekening *${selectedBank}*.\n` +
         `Kode Unik: *${req.uniqueCode}*.\n` +
-        `Mohon verifikasi pada sistem Maisya-Saku. Jazakumullahu khairan.`
-      );
-      window.open(`https://wa.me/${pesantrenInfo.whatsappAdmin}?text=${waText}`, '_blank');
+        `Mohon verifikasi pada sistem Maisya-Saku. Jazakumullahu khairan.`;
+
+      openWhatsAppDirect(pesantrenInfo.whatsappAdmin, waMessage);
     } catch (err) {
       showToast(err.message, 'error');
     } finally {

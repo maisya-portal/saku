@@ -36,6 +36,7 @@ import {
   setDemoMode 
 } from '../services/firebase';
 import confetti from 'canvas-confetti';
+import WhatsAppDispatchModal from './WhatsAppDispatchModal';
 
 export default function RoleAdminBendahara() {
   const {
@@ -57,6 +58,16 @@ export default function RoleAdminBendahara() {
 
   // Active Tab
   const [activeAdminTab, setActiveAdminTab] = useState('roles'); // 'roles' | 'santri' | 'approvals' | 'settings' | 'reports' | 'firebase'
+
+  // WhatsApp Dispatch Modal State
+  const [whatsAppModal, setWhatsAppModal] = useState({
+    isOpen: false,
+    title: '',
+    recipientName: '',
+    initialPhone: '',
+    defaultMessage: '',
+    onSavePhone: null
+  });
 
   // Modals state
   const [selectedProofUrl, setSelectedProofUrl] = useState(null);
@@ -98,34 +109,40 @@ export default function RoleAdminBendahara() {
     }
   };
 
-  // Generate WhatsApp Magic Link for Staff Roles
+  // Generate WhatsApp Magic Link for Staff Roles (Opens editable modal)
   const handleSendRoleMagicLink = (roleAcc) => {
     const baseUrl = window.location.origin + window.location.pathname;
     const magicUrl = `${baseUrl}#token=${roleAcc.token}`;
 
-    const text = encodeURIComponent(
+    const text = 
       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
       `Kepada Yth. *${roleAcc.name}* (${roleAcc.title})\n` +
       `Berikut adalah *Tautan Masuk Aman (Magic Link)* Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
       `🔗 ${magicUrl}\n\n` +
       `PIN Masuk Anda: *${roleAcc.pin}*\n` +
       `(Anda juga dapat masuk menggunakan sensor sidik jari pada layar HP/tablet).\n\n` +
-      `Harap jaga kerahasiaan tautan dan PIN ini.`
-    );
+      `Harap jaga kerahasiaan tautan dan PIN ini.`;
 
-    const waPhone = roleAcc.phone.replace(/[^0-9]/g, '');
-    const formattedPhone = waPhone.startsWith('0') ? '62' + waPhone.slice(1) : waPhone;
-    window.open(`https://wa.me/${formattedPhone}?text=${text}`, '_blank');
+    setWhatsAppModal({
+      isOpen: true,
+      title: 'Kirim Magic Link ke Petugas',
+      recipientName: `${roleAcc.name} (${roleAcc.title})`,
+      initialPhone: roleAcc.phone || '',
+      defaultMessage: text,
+      onSavePhone: (newPhone) => {
+        updateRoleAccount(roleAcc.id, { phone: newPhone });
+      }
+    });
   };
 
-  // Generate WhatsApp Magic Link for Wali Santri
+  // Generate WhatsApp Magic Link for Wali Santri (Opens editable modal)
   const handleSendWaliMagicLink = (santri) => {
     const baseUrl = window.location.origin + window.location.pathname;
     const magicUrl = `${baseUrl}#token=${santri.parentToken}`;
     const siblings = santriList.filter(s => s.parentToken === santri.parentToken);
     const siblingsName = siblings.map(s => s.name).join(' & ');
 
-    const text = encodeURIComponent(
+    const text = 
       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
       `Kepada Yth. Bapak/Ibu Wali Santri dari ananda:\n` +
       `*${siblingsName}*\n\n` +
@@ -133,12 +150,18 @@ export default function RoleAdminBendahara() {
       `🔗 ${magicUrl}\n\n` +
       `PIN Masuk: *${santri.pin || '1234'}* (atau gunakan sidik jari HP/tablet)\n\n` +
       `Melalui tautan di atas Anda dapat memantau saldo realtime, mengatur batas jajan harian, transfer uang saku, dan melihat riwayat belanja santri.\n` +
-      `Jazakumullahu khairan.`
-    );
+      `Jazakumullahu khairan.`;
 
-    const waPhone = santri.parentPhone.replace(/[^0-9]/g, '');
-    const formattedPhone = waPhone.startsWith('0') ? '62' + waPhone.slice(1) : waPhone;
-    window.open(`https://wa.me/${formattedPhone}?text=${text}`, '_blank');
+    setWhatsAppModal({
+      isOpen: true,
+      title: 'Kirim Magic Link ke Wali Santri',
+      recipientName: `${santri.parentName} (Wali dari ${siblingsName})`,
+      initialPhone: santri.parentPhone || '',
+      defaultMessage: text,
+      onSavePhone: (newPhone) => {
+        updateSantri(santri.id, { parentPhone: newPhone });
+      }
+    });
   };
 
   // Filtered Santri
@@ -1440,6 +1463,18 @@ export default function RoleAdminBendahara() {
           </div>
         </div>
       )}
+
+      {/* MODAL 6: WHATSAPP DISPATCH MODAL */}
+      <WhatsAppDispatchModal
+        isOpen={whatsAppModal.isOpen}
+        onClose={() => setWhatsAppModal({ ...whatsAppModal, isOpen: false })}
+        title={whatsAppModal.title}
+        recipientName={whatsAppModal.recipientName}
+        initialPhone={whatsAppModal.initialPhone}
+        defaultMessage={whatsAppModal.defaultMessage}
+        onSavePhone={whatsAppModal.onSavePhone}
+        showToast={showToast}
+      />
     </div>
   );
 }

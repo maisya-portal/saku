@@ -1,25 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, 
-  ShoppingBag, 
-  Shirt, 
-  PhoneCall, 
-  GraduationCap, 
-  CreditCard, 
-  Building2, 
-  ChevronDown, 
+  Lock, 
+  LogOut, 
   Download, 
-  Sparkles,
-  ShieldCheck,
-  Check,
-  Info,
-  AlertTriangle
+  ShieldCheck, 
+  Check, 
+  Info, 
+  AlertTriangle 
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Navbar() {
-  const { currentRole, setCurrentRole, activeParentToken, setActiveParentToken, toast, pesantrenInfo } = useApp();
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const { authSession, logout, toast, pesantrenInfo } = useApp();
   const [pwaPrompt, setPwaPrompt] = useState(null);
 
   // Capture PWA install event
@@ -41,18 +33,6 @@ export default function Navbar() {
     }
   };
 
-  const roles = [
-    { id: 'wali', label: 'Wali Santri', desc: 'Kontrol uang saku, limit & transfer', icon: Users, color: 'text-emerald-700 bg-emerald-50' },
-    { id: 'kantin', label: 'Petugas Kantin', desc: 'POS Kasir & Manajemen Barang', icon: ShoppingBag, color: 'text-amber-700 bg-amber-50' },
-    { id: 'laundry', label: 'Petugas Laundry', desc: 'Penerimaan pakaian & tiket klaim', icon: Shirt, color: 'text-sky-700 bg-sky-50' },
-    { id: 'wartel', label: 'Petugas Wartel', desc: 'Tarif telepon & timer bicara', icon: PhoneCall, color: 'text-indigo-700 bg-indigo-50' },
-    { id: 'spp', label: 'Kasir SPP', desc: 'Tagihan bulanan & ekstrakurikuler', icon: GraduationCap, color: 'text-purple-700 bg-purple-50' },
-    { id: 'kiosk', label: 'Kiosk Santri', desc: 'Anjungan cek saldo mandiri', icon: CreditCard, color: 'text-teal-700 bg-teal-50' },
-    { id: 'admin', label: 'Bendahara Pesantren', desc: 'Verifikasi top-up & kartu RFID', icon: Building2, color: 'text-slate-800 bg-slate-100' },
-  ];
-
-  const activeRoleObj = roles.find(r => r.id === currentRole) || roles[0];
-
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
@@ -71,7 +51,7 @@ export default function Navbar() {
                   Maisya-Saku
                 </h1>
                 <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full tracking-wide">
-                  PWA 2026
+                  SECURE PWA
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium truncate max-w-xs sm:max-w-md mt-0.5">
@@ -80,7 +60,7 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Right Action: Role Switcher & PWA Button */}
+          {/* Right Action: Authenticated Profile & Session Lock (No Public Role Switcher) */}
           <div className="flex items-center gap-2">
             {/* PWA Install Button */}
             {pwaPrompt && (
@@ -94,57 +74,35 @@ export default function Navbar() {
               </button>
             )}
 
-            {/* Role Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                className="flex items-center gap-2.5 bg-slate-100 hover:bg-slate-200/80 px-3.5 py-2 rounded-2xl border border-slate-200 text-xs font-bold text-slate-800 transition-all"
-              >
-                <activeRoleObj.icon className="w-4 h-4 text-emerald-700" />
-                <span className="hidden md:inline text-slate-500 font-normal">Role:</span>
-                <span>{activeRoleObj.label}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-
-              {roleMenuOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 animate-in fade-in zoom-in-95">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1.5">
-                    Ganti Akses Peran Aplikasi:
+            {/* Active User Session Pill */}
+            {authSession && (
+              <div className="flex items-center gap-3 bg-slate-100 p-1.5 pl-3 rounded-2xl border border-slate-200">
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs font-bold text-slate-900 truncate max-w-[150px]">
+                    {authSession.name}
                   </div>
-                  <div className="space-y-1">
-                    {roles.map((r) => {
-                      const Icon = r.icon;
-                      const isCurrent = currentRole === r.id;
-                      return (
-                        <button
-                          key={r.id}
-                          type="button"
-                          onClick={() => {
-                            setCurrentRole(r.id);
-                            setRoleMenuOpen(false);
-                          }}
-                          className={`w-full text-left p-2.5 rounded-xl flex items-center gap-3 transition-colors ${
-                            isCurrent
-                              ? 'bg-emerald-50 text-emerald-900 font-bold'
-                              : 'hover:bg-slate-50 text-slate-700'
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${r.color}`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="overflow-hidden flex-1">
-                            <div className="text-xs truncate">{r.label}</div>
-                            <div className="text-[10px] text-slate-400 font-normal truncate">{r.desc}</div>
-                          </div>
-                          {isCurrent && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
-                        </button>
-                      );
-                    })}
+                  <div className="text-[10px] text-emerald-700 font-semibold truncate max-w-[150px]">
+                    {authSession.title}
                   </div>
                 </div>
-              )}
-            </div>
+
+                <img
+                  src={authSession.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"}
+                  alt={authSession.name}
+                  className="w-8 h-8 rounded-xl object-cover border border-slate-300"
+                />
+
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="flex items-center gap-1 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold transition-all shadow-xs"
+                  title="Kunci Sesi / Keluar"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">Kunci Sesi</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>

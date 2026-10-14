@@ -7,7 +7,8 @@ import {
   INITIAL_WARTEL_BOOTHS,
   INITIAL_SPP_TAGIHAN,
   INITIAL_TRANSACTIONS,
-  INITIAL_TOPUP_REQUESTS
+  INITIAL_TOPUP_REQUESTS,
+  INITIAL_ROLE_ACCOUNTS
 } from '../data/initialData';
 import { db, isDemoMode } from '../services/firebase';
 import { 
@@ -16,6 +17,7 @@ import {
   doc, 
   updateDoc, 
   addDoc, 
+  deleteDoc,
   setDoc, 
   query, 
   orderBy 
@@ -105,26 +107,53 @@ export function formatDateTime(isoString) {
 }
 
 export function AppProvider({ children }) {
-  // Navigation / Role state
-  const [currentRole, setCurrentRole] = useState(() => {
-    // Check URL parameters for direct role or token
+  // Read token from URL query or hash
+  const extractTokenFromUrl = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
-    if (urlParams.get('token') || hashParams.get('token')) return 'wali';
-    if (urlParams.get('role')) return urlParams.get('role');
-    return 'wali'; // Default entry point
+    return urlParams.get('token') || hashParams.get('token') || '';
+  };
+
+  // Role Accounts (Managed exclusively by Super Admin)
+  const [roleAccounts, setRoleAccounts] = useState(() => {
+    const saved = localStorage.getItem('maisya_role_accounts');
+    return saved ? JSON.parse(saved) : INITIAL_ROLE_ACCOUNTS;
   });
 
-  const [activeParentToken, setActiveParentToken] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
-    return urlParams.get('token') || hashParams.get('token') || 'wali-hendra';
-  });
-
-  // Data Collections (Synchronized with localStorage or Cloud Firestore)
+  // Santri List
   const [santriList, setSantriList] = useState(() => {
     const saved = localStorage.getItem('maisya_santri');
     return saved ? JSON.parse(saved) : INITIAL_SANTRI;
+  });
+
+  // Active Authenticated Session (null when locked/logged out)
+  const [authSession, setAuthSession] = useState(() => {
+    const saved = sessionStorage.getItem('maisya_auth_session');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { /* ignore */ }
+    }
+    return null;
+  });
+
+  // Pending Token from Magic Link URL
+  const [urlToken, setUrlToken] = useState(() => extractTokenFromUrl());
+
+  // Listen to hash / URL changes
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const token = extractTokenFromUrl();
+      if (token) {
+        setUrlToken(token);
+      }
+    };
+    window.addEventListener('hashchange', handleUrlChange);
+    return () => window.removeEventListener('hashchange', handleUrlChange);
+  }, []);
+
+  // System & Collections
+  const [pesantrenInfo, setPesantrenInfo] = useState(() => {
+    const saved = localStorage.getItem('maisya_pesantren_info');
+    return saved ? JSON.parse(saved) : INITIAL_PESANTREN_INFO;
   });
 
   const [products, setProducts] = useState(() => {
@@ -157,14 +186,11 @@ export function AppProvider({ children }) {
     return saved ? JSON.parse(saved) : INITIAL_TOPUP_REQUESTS;
   });
 
-  const [pesantrenInfo, setPesantrenInfo] = useState(INITIAL_PESANTREN_INFO);
-
-  // Selected Santri ID for Wali Santri view (defaults to first child of active parent)
+  // Selected child for Wali Santri view
   const [selectedChildId, setSelectedChildId] = useState('');
 
-  // Notification Toast state
+  // Toast
   const [toast, setToast] = useState(null);
-
   const showToast = useCallback((message, type = 'info') => {
     setToast({ message, type, id: Date.now() });
     setTimeout(() => {
@@ -172,10 +198,18 @@ export function AppProvider({ children }) {
     }, 4500);
   }, [toast]);
 
-  // Sync to localStorage as local cache
+  // Persist roleAccounts & session
+  useEffect(() => {
+    localStorage.setItem('maisya_role_accounts', JSON.stringify(roleAccounts));
+  }, [roleAccounts]);
+
   useEffect(() => {
     localStorage.setItem('maisya_santri', JSON.stringify(santriList));
   }, [santriList]);
+
+  useEffect(() => {
+    localStorage.setItem('maisya_pesantren_info', JSON.stringify(pesantrenInfo));
+  }, [pesantrenInfo]);
 
   useEffect(() => {
     localStorage.setItem('maisya_products', JSON.stringify(products));
@@ -193,6 +227,14 @@ export function AppProvider({ children }) {
     localStorage.setItem('maisya_spp', JSON.stringify(sppBills));
   }, [sppBills]);
 
+  useEffect(() => {
+    if (authSession) {
+      sessionStorage.setItem('maisya_auth_session', JSON.stringify(authSession));
+    } else {
+      sessionStorage.removeItem('maisya_auth_session');
+    }
+  }, [authSession]);
+
   // BroadcastChannel for cross-tab multi-device real-time sync in demo mode
   useEffect(() => {
     let channel;
@@ -206,6 +248,8 @@ export function AppProvider({ children }) {
           if (payload.topupRequests) setTopupRequests(payload.topupRequests);
           if (payload.products) setProducts(payload.products);
           if (payload.sppBills) setSppBills(payload.sppBills);
+          if (payload.roleAccounts) setRoleAccounts(payload.roleAccounts);
+          if (payload.pesantrenInfo) setPesantrenInfo(payload.pesantrenInfo);
         }
       };
     } catch (e) {
@@ -226,45 +270,43 @@ export function AppProvider({ children }) {
           transactions: updated.transactions || transactions,
           topupRequests: updated.topupRequests || topupRequests,
           products: updated.products || products,
-          sppBills: updated.sppBills || sppBills
+          sppBills: updated.sppBills || sppBills,
+          roleAccounts: updated.roleAccounts || roleAccounts,
+          pesantrenInfo: updated.pesantrenInfo || pesantrenInfo
         }
       });
       channel.close();
     } catch (e) {
       // ignore
     }
-  }, [santriList, transactions, topupRequests, products, sppBills]);
+  }, [santriList, transactions, topupRequests, products, sppBills, roleAccounts, pesantrenInfo]);
 
-  // Cloud Firestore Realtime Listeners (if Firebase is configured and not in Demo Mode)
+  // Cloud Firestore Realtime Listeners
   useEffect(() => {
     if (isDemoMode() || !db) return;
 
     try {
       const unsubSantri = onSnapshot(collection(db, 'santri'), (snapshot) => {
         if (!snapshot.empty) {
-          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          setSantriList(list);
+          setSantriList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         }
       });
 
       const unsubTrx = onSnapshot(query(collection(db, 'transactions'), orderBy('timestamp', 'desc')), (snapshot) => {
         if (!snapshot.empty) {
-          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          setTransactions(list);
+          setTransactions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         }
       });
 
       const unsubTopup = onSnapshot(collection(db, 'topups'), (snapshot) => {
         if (!snapshot.empty) {
-          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          setTopupRequests(list);
+          setTopupRequests(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         }
       });
 
       const unsubProd = onSnapshot(collection(db, 'products'), (snapshot) => {
         if (!snapshot.empty) {
-          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-          setProducts(list);
+          setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
         }
       });
 
@@ -281,10 +323,10 @@ export function AppProvider({ children }) {
 
   // Filter children for active Wali Santri
   const activeChildren = useMemo(() => {
-    return santriList.filter(s => s.parentToken === activeParentToken);
-  }, [santriList, activeParentToken]);
+    if (!authSession || authSession.role !== 'wali') return [];
+    return santriList.filter(s => s.parentToken === authSession.token);
+  }, [santriList, authSession]);
 
-  // Set selected child if not selected or current child is not in active children
   useEffect(() => {
     if (activeChildren.length > 0) {
       if (!selectedChildId || !activeChildren.some(c => c.id === selectedChildId)) {
@@ -293,18 +335,180 @@ export function AppProvider({ children }) {
     }
   }, [activeChildren, selectedChildId]);
 
-  // Current selected santri object for Wali Santri view
   const currentChild = useMemo(() => {
-    return santriList.find(s => s.id === selectedChildId) || activeChildren[0] || santriList[0];
+    return santriList.find(s => s.id === selectedChildId) || activeChildren[0] || null;
   }, [santriList, selectedChildId, activeChildren]);
 
-  // Spending Limit Verification Logic
+  // Current active role derived from authSession
+  const currentRole = authSession ? authSession.role : null;
+
+  // Resolve target account for pending token (Role Account or Wali Santri)
+  const resolveTargetFromToken = useCallback((token) => {
+    if (!token) return null;
+    // Check staff role accounts
+    const roleAcc = roleAccounts.find(r => r.token.toLowerCase() === token.toLowerCase());
+    if (roleAcc) {
+      return {
+        type: 'role',
+        role: roleAcc.role,
+        id: roleAcc.id,
+        name: roleAcc.name,
+        title: roleAcc.title,
+        token: roleAcc.token,
+        pin: roleAcc.pin,
+        avatar: roleAcc.avatar
+      };
+    }
+
+    // Check Wali Santri tokens
+    const santriMatch = santriList.filter(s => s.parentToken && s.parentToken.toLowerCase() === token.toLowerCase());
+    if (santriMatch.length > 0) {
+      const first = santriMatch[0];
+      return {
+        type: 'wali',
+        role: 'wali',
+        id: first.parentToken,
+        name: first.parentName,
+        title: `Wali Santri dari ${santriMatch.map(s => s.name).join(' & ')}`,
+        token: first.parentToken,
+        pin: first.pin || '1234',
+        avatar: first.avatar,
+        childrenCount: santriMatch.length
+      };
+    }
+
+    return null;
+  }, [roleAccounts, santriList]);
+
+  // LOGIN VIA PIN
+  const loginWithPin = useCallback((targetAccount, inputPin) => {
+    if (!targetAccount) throw new Error('Akun tidak ditemukan.');
+    if (targetAccount.pin !== inputPin) {
+      playSound('error');
+      throw new Error('PIN yang Anda masukkan salah! Silakan coba lagi.');
+    }
+
+    const session = {
+      type: targetAccount.type,
+      role: targetAccount.role,
+      id: targetAccount.id,
+      name: targetAccount.name,
+      title: targetAccount.title,
+      token: targetAccount.token,
+      avatar: targetAccount.avatar,
+      authMethod: 'PIN',
+      verifiedAt: new Date().toISOString()
+    };
+
+    setAuthSession(session);
+    playSound('success');
+    showToast(`Ahlan wa Sahlan, ${targetAccount.name}!`, 'success');
+    return session;
+  }, [showToast]);
+
+  // LOGIN VIA BIOMETRIC (FINGERPRINT SCREEN TOUCH OR USB/HARDWARE)
+  const loginWithBiometric = useCallback((targetAccount, method = 'TOUCH_SCREEN_FINGER') => {
+    if (!targetAccount) throw new Error('Akun tidak ditemukan.');
+
+    const session = {
+      type: targetAccount.type,
+      role: targetAccount.role,
+      id: targetAccount.id,
+      name: targetAccount.name,
+      title: targetAccount.title,
+      token: targetAccount.token,
+      avatar: targetAccount.avatar,
+      authMethod: method,
+      verifiedAt: new Date().toISOString()
+    };
+
+    setAuthSession(session);
+    playSound('success');
+    showToast(`Autentikasi Sidik Jari Berhasil! Selamat Datang, ${targetAccount.name}`, 'success');
+    return session;
+  }, [showToast]);
+
+  // LOGOUT / LOCK SESSION
+  const logout = useCallback(() => {
+    setAuthSession(null);
+    playSound('beep');
+    showToast('Sesi dikunci. Silakan verifikasi untuk masuk kembali.', 'info');
+  }, [showToast]);
+
+  // SUPER ADMIN: Update Role Account (PIN, Token, Name, Phone)
+  const updateRoleAccount = useCallback((roleId, updatedData) => {
+    const updated = roleAccounts.map(r => r.id === roleId ? { ...r, ...updatedData } : r);
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    playSound('beep');
+    showToast(`Pengaturan akun "${updatedData.name || roleId}" diperbarui!`, 'success');
+  }, [roleAccounts, broadcastState, showToast]);
+
+  // SUPER ADMIN: Add Santri
+  const addSantri = useCallback(async (newSantri) => {
+    const updated = [...santriList, newSantri];
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('success');
+    showToast(`Santri "${newSantri.name}" berhasil didaftarkan!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        await addDoc(collection(db, 'santri'), newSantri);
+      } catch (err) {
+        console.error('Error adding santri to firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Update Santri
+  const updateSantri = useCallback(async (santriId, data) => {
+    const updated = santriList.map(s => s.id === santriId ? { ...s, ...data } : s);
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('beep');
+    showToast(`Data santri berhasil diperbarui!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        await updateDoc(doc(db, 'santri', santriId), data);
+      } catch (err) {
+        console.error('Error updating santri on firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Delete Santri
+  const deleteSantri = useCallback(async (santriId) => {
+    const target = santriList.find(s => s.id === santriId);
+    const updated = santriList.filter(s => s.id !== santriId);
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    showToast(`Santri ${target?.name || ''} telah dihapus.`, 'info');
+
+    if (!isDemoMode() && db) {
+      try {
+        await deleteDoc(doc(db, 'santri', santriId));
+      } catch (err) {
+        console.error('Error deleting santri on firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Update Pesantren Info
+  const updatePesantrenInfo = useCallback((info) => {
+    setPesantrenInfo(info);
+    broadcastState({ pesantrenInfo: info });
+    showToast('Informasi Pesantren berhasil diperbarui!', 'success');
+  }, [broadcastState, showToast]);
+
+  // Spending Limit Verification
   const checkSpendingLimit = useCallback((santri, amountToSpend) => {
     if (!santri) return { allowed: false, reason: "Data santri tidak ditemukan." };
     if (santri.balance < amountToSpend) {
       return {
         allowed: false,
-        reason: `Saldo santri tidak mencukupi. (Saldo saat ini: ${formatRupiah(santri.balance)}, Total belanja: ${formatRupiah(amountToSpend)})`,
+        reason: `Saldo santri tidak mencukupi. (Saldo: ${formatRupiah(santri.balance)}, Belanja: ${formatRupiah(amountToSpend)})`,
         remaining: santri.balance
       };
     }
@@ -316,8 +520,6 @@ export function AppProvider({ children }) {
 
     const todayStr = new Date().toISOString().split('T')[0];
     const used = santri.spendingUsed || { daily: 0, weekly: 0, monthly: 0, lastResetDate: todayStr };
-
-    // Reset daily used if day changed
     const isNewDay = used.lastResetDate !== todayStr;
     const currentDailyUsed = isNewDay ? 0 : (used.daily || 0);
 
@@ -330,7 +532,7 @@ export function AppProvider({ children }) {
           remaining: Math.max(0, remainingDaily)
         };
       }
-      return { allowed: true, reason: `Dalam batas harian. Sisa limit setelah ini: ${formatRupiah(remainingDaily - amountToSpend)}`, remaining: remainingDaily - amountToSpend };
+      return { allowed: true, reason: `Dalam batas harian.`, remaining: remainingDaily - amountToSpend };
     }
 
     if (limitConfig.type === 'weekly') {
@@ -360,7 +562,7 @@ export function AppProvider({ children }) {
     return { allowed: true, reason: "OK", remaining: santri.balance };
   }, []);
 
-  // Update Santri Spending Limit (by Parent or Admin)
+  // Update Santri Spending Limit
   const updateSpendingLimit = useCallback(async (santriId, newLimit) => {
     const updatedSantri = santriList.map(s => {
       if (s.id === santriId) {
@@ -418,7 +620,6 @@ export function AppProvider({ children }) {
     const currentBalance = previousBalance - amount;
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Calculate updated spendingUsed
     const prevUsed = targetSantri.spendingUsed || { daily: 0, weekly: 0, monthly: 0, lastResetDate: todayStr };
     const isNewDay = prevUsed.lastResetDate !== todayStr;
     const updatedUsed = {
@@ -449,7 +650,6 @@ export function AppProvider({ children }) {
       timestamp: new Date().toISOString()
     };
 
-    // Update Santri in state
     const updatedSantriList = santriList.map(s => {
       if (s.id === santriId) {
         return {
@@ -461,7 +661,6 @@ export function AppProvider({ children }) {
       return s;
     });
 
-    // Update Kantin stock if items purchased
     let updatedProducts = products;
     if (items.length > 0) {
       updatedProducts = products.map(prod => {
@@ -490,7 +689,6 @@ export function AppProvider({ children }) {
     playSound('success');
     showToast(`Transaksi ${formatRupiah(amount)} berhasil diproses!`, 'success');
 
-    // Cloud Firestore Sync
     if (!isDemoMode() && db) {
       try {
         await updateDoc(doc(db, 'santri', santriId), {
@@ -517,7 +715,7 @@ export function AppProvider({ children }) {
     const targetSantri = santriList.find(s => s.id === santriId);
     if (!targetSantri) throw new Error('Santri tidak ditemukan');
 
-    const uniqueCode = Math.floor(100 + Math.random() * 900); // 3 digit unique code
+    const uniqueCode = Math.floor(100 + Math.random() * 900);
     const totalTransfer = Number(amount) + uniqueCode;
 
     const newRequest = {
@@ -555,7 +753,7 @@ export function AppProvider({ children }) {
     return newRequest;
   }, [santriList, topupRequests, broadcastState, showToast]);
 
-  // Approve Top-up Request (by Bendahara)
+  // Approve Top-up Request
   const approveTopup = useCallback(async (topupId) => {
     const request = topupRequests.find(t => t.id === topupId);
     if (!request || request.status !== 'PENDING') return;
@@ -566,7 +764,6 @@ export function AppProvider({ children }) {
     const previousBalance = targetSantri.balance;
     const currentBalance = previousBalance + request.amount;
 
-    // Create deposit transaction record
     const newTx = {
       id: `trx-${Date.now().toString().slice(-6)}`,
       santriId: targetSantri.id,
@@ -586,21 +783,14 @@ export function AppProvider({ children }) {
 
     const updatedSantriList = santriList.map(s => {
       if (s.id === targetSantri.id) {
-        return {
-          ...s,
-          balance: currentBalance
-        };
+        return { ...s, balance: currentBalance };
       }
       return s;
     });
 
     const updatedTopups = topupRequests.map(t => {
       if (t.id === topupId) {
-        return {
-          ...t,
-          status: 'APPROVED',
-          approvedAt: new Date().toISOString()
-        };
+        return { ...t, status: 'APPROVED', approvedAt: new Date().toISOString() };
       }
       return t;
     });
@@ -662,7 +852,7 @@ export function AppProvider({ children }) {
     }
   }, [topupRequests, broadcastState, showToast]);
 
-  // Manage Kantin Products (CRUD)
+  // Save Kantin Product
   const saveProduct = useCallback(async (productData) => {
     let updated;
     if (productData.id) {
@@ -695,6 +885,7 @@ export function AppProvider({ children }) {
     }
   }, [products, broadcastState, showToast]);
 
+  // Delete Kantin Product
   const deleteProduct = useCallback(async (productId) => {
     const updated = products.filter(p => p.id !== productId);
     setProducts(updated);
@@ -710,7 +901,7 @@ export function AppProvider({ children }) {
     }
   }, [products, broadcastState, showToast]);
 
-  // Pay SPP Bill
+  // Pay SPP
   const paySppBill = useCallback(async (billId, santriId, cashierName = 'Kasir Keuangan') => {
     const bill = sppBills.find(b => b.id === billId);
     const santri = santriList.find(s => s.id === santriId);
@@ -720,7 +911,6 @@ export function AppProvider({ children }) {
       throw new Error(`Saldo santri (${formatRupiah(santri.balance)}) tidak mencukupi untuk tagihan ini (${formatRupiah(bill.amount)})`);
     }
 
-    // Process transaction
     await recordTransaction({
       santriId: santri.id,
       type: 'SPP',
@@ -734,11 +924,7 @@ export function AppProvider({ children }) {
 
     const updatedBills = sppBills.map(b => {
       if (b.id === billId) {
-        return {
-          ...b,
-          status: 'PAID',
-          paidAt: new Date().toISOString()
-        };
+        return { ...b, status: 'PAID', paidAt: new Date().toISOString() };
       }
       return b;
     });
@@ -748,21 +934,29 @@ export function AppProvider({ children }) {
     showToast(`Tagihan ${bill.title} berhasil lunas!`, 'success');
   }, [sppBills, santriList, recordTransaction, broadcastState, showToast]);
 
-  // Value provided to consumers
   const value = {
-    // Pesantren & System info
-    pesantrenInfo,
-    setPesantrenInfo,
-
-    // Navigation & Role
+    // Auth & Identity State
+    authSession,
     currentRole,
-    setCurrentRole,
-    activeParentToken,
-    setActiveParentToken,
+    urlToken,
+    setUrlToken,
+    roleAccounts,
+    resolveTargetFromToken,
+    loginWithPin,
+    loginWithBiometric,
+    logout,
+    updateRoleAccount,
 
-    // Santri data
+    // Pesantren & Admin configs
+    pesantrenInfo,
+    updatePesantrenInfo,
+
+    // Santri management
     santriList,
     setSantriList,
+    addSantri,
+    updateSantri,
+    deleteSantri,
     activeChildren,
     selectedChildId,
     setSelectedChildId,

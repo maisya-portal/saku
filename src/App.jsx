@@ -1,6 +1,7 @@
 import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
+import AuthGate from './components/AuthGate';
 import RoleWaliSantri from './components/RoleWaliSantri';
 import RolePetugasKantin from './components/RolePetugasKantin';
 import RolePetugasLaundry from './components/RolePetugasLaundry';
@@ -10,20 +11,25 @@ import RoleKioskSantri from './components/RoleKioskSantri';
 import RoleAdminBendahara from './components/RoleAdminBendahara';
 
 function MainContent() {
-  const { currentRole, pesantrenInfo } = useApp();
+  const { authSession, currentRole, pesantrenInfo } = useApp();
+
+  // If session is locked / not authenticated, display secure AuthGate
+  if (!authSession) {
+    return <AuthGate />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
       <Navbar />
 
       <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
-        {currentRole === 'wali' && <RoleWaliSantri />}
+        {currentRole === 'admin' && <RoleAdminBendahara />}
         {currentRole === 'kantin' && <RolePetugasKantin />}
         {currentRole === 'laundry' && <RolePetugasLaundry />}
         {currentRole === 'wartel' && <RolePetugasTelpon />}
         {currentRole === 'spp' && <RoleKasirSPP />}
         {currentRole === 'kiosk' && <RoleKioskSantri />}
-        {currentRole === 'admin' && <RoleAdminBendahara />}
+        {currentRole === 'wali' && <RoleWaliSantri />}
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">

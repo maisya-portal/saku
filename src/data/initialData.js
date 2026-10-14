@@ -438,3 +438,72 @@ export const INITIAL_TOPUP_REQUESTS = [
     createdAt: "2026-10-14T13:30:00Z"
   }
 ];
+
+export const INITIAL_ROLE_ACCOUNTS = [
+  {
+    id: "role-admin",
+    role: "admin",
+    name: "Super Admin Keuangan Ma'had",
+    title: "Administrator & Bendahara Utama",
+    token: "admin-isb-2026",
+    pin: "123456",
+    phone: "081234567890",
+    biometricRegistered: true,
+    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"
+  },
+  {
+    id: "role-kantin",
+    role: "kantin",
+    name: "Akhi Rian (Kasir Kantin)",
+    title: "Petugas Kasir Kantin Santri",
+    token: "kantin-isb-2026",
+    pin: "112233",
+    phone: "081234567894",
+    biometricRegistered: true,
+    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150"
+  },
+  {
+    id: "role-laundry",
+    role: "laundry",
+    name: "Ummu Maryam (Petugas Laundry)",
+    title: "Petugas Laundry Pesantren",
+    token: "laundry-isb-2026",
+    pin: "223344",
+    phone: "081234567895",
+    biometricRegistered: true,
+    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150"
+  },
+  {
+    id: "role-wartel",
+    role: "wartel",
+    name: "Akhi Ridwan (Operator Wartel)",
+    title: "Petugas Wartel Santri",
+    token: "wartel-isb-2026",
+    pin: "334455",
+    phone: "081234567896",
+    biometricRegistered: true,
+    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150"
+  },
+  {
+    id: "role-spp",
+    role: "spp",
+    name: "Ust. Zulkifli (Kasir Syahriyah)",
+    title: "Kasir SPP & Tagihan Pesantren",
+    token: "spp-isb-2026",
+    pin: "445566",
+    phone: "081234567897",
+    biometricRegistered: true,
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
+  },
+  {
+    id: "role-kiosk",
+    role: "kiosk",
+    name: "Kiosk Anjungan Mandiri",
+    title: "Anjungan Cek Saldo Santri",
+    token: "kiosk-isb-2026",
+    pin: "000000",
+    phone: "",
+    biometricRegistered: false,
+    avatar: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=150"
+  }
+];

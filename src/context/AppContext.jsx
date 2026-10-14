@@ -191,12 +191,25 @@ export function AppProvider({ children }) {
 
   // Toast
   const [toast, setToast] = useState(null);
-  const showToast = useCallback((message, type = 'info') => {
-    setToast({ message, type, id: Date.now() });
-    setTimeout(() => {
-      setToast(prev => (prev && prev.id === toast?.id ? null : prev));
-    }, 4500);
-  }, [toast]);
+  const toastTimerRef = useRef(null);
+
+  const showToast = useCallback((message, type = 'info', duration = 2500) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    const newId = Date.now();
+    setToast({ message, type, id: newId });
+    toastTimerRef.current = setTimeout(() => {
+      setToast(prev => (prev && prev.id === newId ? null : prev));
+    }, duration);
+  }, []);
+
+  const hideToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    setToast(null);
+  }, []);
 
   // Persist roleAccounts & session
   useEffect(() => {
@@ -983,7 +996,8 @@ export function AppProvider({ children }) {
 
     // Toast & Alerts
     toast,
-    showToast
+    showToast,
+    hideToast
   };
 
   return (

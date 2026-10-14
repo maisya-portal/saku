@@ -6,12 +6,13 @@ import {
   ShieldCheck, 
   Check, 
   Info, 
-  AlertTriangle 
+  AlertTriangle,
+  X 
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Navbar() {
-  const { authSession, logout, toast, pesantrenInfo } = useApp();
+  const { authSession, logout, toast, hideToast, pesantrenInfo } = useApp();
   const [pwaPrompt, setPwaPrompt] = useState(null);
 
   // Capture PWA install event
@@ -109,24 +110,42 @@ export default function Navbar() {
 
       {/* Floating Notification Toast */}
       {toast && (
-        <div className="fixed bottom-5 right-5 z-50 max-w-sm animate-in slide-in-from-bottom-5 fade-in duration-200">
-          <div className={`p-4 rounded-2xl shadow-2xl border flex items-start gap-3 ${
+        <div 
+          onClick={hideToast}
+          className="fixed bottom-5 right-5 z-50 max-w-sm animate-in slide-in-from-bottom-5 fade-in duration-200 cursor-pointer group"
+          title="Klik untuk menutup notifikasi"
+        >
+          <div className={`p-4 rounded-2xl shadow-2xl border flex items-center justify-between gap-3 transition-transform group-hover:scale-102 ${
             toast.type === 'success'
               ? 'bg-emerald-900 text-white border-emerald-500/50'
               : toast.type === 'error'
               ? 'bg-rose-900 text-white border-rose-500/50'
               : 'bg-slate-900 text-white border-slate-700'
           }`}>
-            {toast.type === 'success' ? (
-              <Check className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-            ) : toast.type === 'error' ? (
-              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-            ) : (
-              <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-            )}
-            <div className="text-xs font-semibold leading-relaxed">
-              {toast.message}
+            <div className="flex items-center gap-3">
+              {toast.type === 'success' ? (
+                <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+              ) : toast.type === 'error' ? (
+                <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              ) : (
+                <Info className="w-5 h-5 text-sky-400 shrink-0" />
+              )}
+              <div className="text-xs font-semibold leading-relaxed">
+                {toast.message}
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                hideToast();
+              }}
+              className="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 transition-colors"
+              title="Tutup"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

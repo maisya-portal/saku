@@ -1,19 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Lock, 
   Fingerprint, 
   KeyRound, 
   ShieldCheck, 
   ArrowRight, 
-  Sparkles, 
-  Users, 
-  Building2, 
-  ShoppingBag, 
-  Shirt, 
-  PhoneCall, 
-  GraduationCap, 
-  CreditCard,
-  CheckCircle2,
   AlertCircle
 } from 'lucide-react';
 import { useApp, playSound } from '../context/AppContext';
@@ -27,64 +18,118 @@ export default function AuthGate() {
     resolveTargetFromToken, 
     loginWithPin, 
     loginWithBiometric, 
-    roleAccounts, 
-    santriList,
     pesantrenInfo 
   } = useApp();
 
   const [activeToken, setActiveToken] = useState(urlToken || '');
+  const [tokenInput, setTokenInput] = useState('');
   const [targetAccount, setTargetAccount] = useState(null);
   const [authMode, setAuthMode] = useState('pin'); // 'pin' | 'biometric'
   const [inputPin, setInputPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const pinInputRef = useRef(null);
+
+  // Helper to extract clean token if user pastes a full URL or #token=xxx
+  const parseTokenString = (str) => {
+    if (!str) return '';
+    const trimmed = str.trim();
+    if (trimmed.includes('token=')) {
+      const match = trimmed.match(/token=([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : trimmed;
+    }
+    return trimmed.replace(/^#/, '');
+  };
 
   // Update target when activeToken changes
   useEffect(() => {
     if (activeToken) {
-      const found = resolveTargetFromToken(activeToken);
+      const clean = parseTokenString(activeToken);
+      const found = resolveTargetFromToken(clean);
       setTargetAccount(found);
       setInputPin('');
       setErrorMsg('');
+      if (found) {
+        window.location.hash = `token=${clean}`;
+      }
     } else {
       setTargetAccount(null);
     }
   }, [activeToken, resolveTargetFromToken]);
 
-  // Handle PIN input button click
-  const handlePinDigit = (digit) => {
-    if (inputPin.length < 6) {
-      playSound('beep');
-      const newPin = inputPin + digit;
-      setInputPin(newPin);
-      setErrorMsg('');
-
-      // Auto submit if length matches target PIN
-      if (targetAccount && newPin.length === targetAccount.pin.length) {
-        attemptPinLogin(newPin);
-      }
-    }
-  };
-
-  const handlePinBackspace = () => {
-    setInputPin(prev => prev.slice(0, -1));
-    setErrorMsg('');
-    playSound('beep');
-  };
-
-  const handleClearPin = () => {
-    setInputPin('');
-    setErrorMsg('');
-  };
-
-  const attemptPinLogin = (pinToTest) => {
+  const attemptPinLogin = useCallback((pinToTest) => {
     try {
       loginWithPin(targetAccount, pinToTest);
       confetti({ particleCount: 70, spread: 60 });
     } catch (err) {
       setErrorMsg(err.message);
       setInputPin('');
+      if (pinInputRef.current) pinInputRef.current.focus();
     }
-  };
+  }, [targetAccount, loginWithPin]);
+
+  // Handle PIN input digit
+  const handlePinDigit = useCallback((digit) => {
+    const maxLen = targetAccount?.pin?.length || 6;
+    setInputPin(prev => {
+      if (prev.length < maxLen) {
+        playSound('beep');
+        const next = prev + digit;
+        if (targetAccount && next.length === maxLen) {
+          setTimeout(() => attemptPinLogin(next), 50);
+        }
+        return next;
+      }
+      return prev;
+    });
+    setErrorMsg('');
+  }, [targetAccount, attemptPinLogin]);
+
+  const handlePinBackspace = useCallback(() => {
+    setInputPin(prev => prev.slice(0, -1));
+    setErrorMsg('');
+    playSound('beep');
+  }, []);
+
+  const handleClearPin = useCallback(() => {
+    setInputPin('');
+    setErrorMsg('');
+  }, []);
+
+  // Physical Keyboard Listener for Laptop / PC
+  useEffect(() => {
+    if (!targetAccount || authMode !== 'pin') return;
+
+    const handleKeyDown = (e) => {
+      // Don't intercept if user is typing in another input
+      if (e.target.tagName === 'INPUT' && e.target !== pinInputRef.current) return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handlePinDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handlePinBackspace();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClearPin();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (inputPin.length > 0) {
+          attemptPinLogin(inputPin);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [targetAccount, authMode, inputPin, handlePinDigit, handlePinBackspace, handleClearPin, attemptPinLogin]);
+
+  // Keep focus on PIN input on desktop
+  useEffect(() => {
+    if (targetAccount && authMode === 'pin' && pinInputRef.current) {
+      pinInputRef.current.focus();
+    }
+  }, [targetAccount, authMode]);
 
   const handleBiometricSuccess = (method) => {
     try {
@@ -95,17 +140,24 @@ export default function AuthGate() {
     }
   };
 
-  // Quick preset tokens for easy testing & demo
-  const demoTokens = [
-    { token: 'admin-isb-2026', label: 'Super Admin', role: 'admin', icon: Building2, color: 'text-slate-800 bg-slate-100' },
-    { token: 'kantin-isb-2026', label: 'Petugas Kantin', role: 'kantin', icon: ShoppingBag, color: 'text-amber-700 bg-amber-50' },
-    { token: 'laundry-isb-2026', label: 'Petugas Laundry', role: 'laundry', icon: Shirt, color: 'text-sky-700 bg-sky-50' },
-    { token: 'wartel-isb-2026', label: 'Petugas Wartel', role: 'wartel', icon: PhoneCall, color: 'text-indigo-700 bg-indigo-50' },
-    { token: 'spp-isb-2026', label: 'Kasir SPP', role: 'spp', icon: GraduationCap, color: 'text-purple-700 bg-purple-50' },
-    { token: 'kiosk-isb-2026', label: 'Kiosk Mandiri', role: 'kiosk', icon: CreditCard, color: 'text-teal-700 bg-teal-50' },
-    { token: 'wali-hendra', label: 'Wali Santri (2 Anak)', role: 'wali', icon: Users, color: 'text-emerald-700 bg-emerald-50' },
-    { token: 'wali-fatih', label: 'Wali Santri (1 Anak)', role: 'wali', icon: Users, color: 'text-emerald-700 bg-emerald-50' }
-  ];
+  // Submit token from manual input on initial page
+  const handleTokenSubmit = (e) => {
+    e.preventDefault();
+    const clean = parseTokenString(tokenInput);
+    if (!clean) {
+      setErrorMsg('Silakan masukkan token atau tautan yang valid.');
+      return;
+    }
+    const found = resolveTargetFromToken(clean);
+    if (!found) {
+      playSound('error');
+      setErrorMsg(`Token "${clean}" tidak terdaftar dalam sistem.`);
+      return;
+    }
+    playSound('beep');
+    setActiveToken(clean);
+    setErrorMsg('');
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-4 sm:p-6 selection:bg-emerald-500 selection:text-white">
@@ -153,10 +205,12 @@ export default function AuthGate() {
                 onClick={() => {
                   setActiveToken('');
                   setTargetAccount(null);
+                  setTokenInput('');
+                  window.location.hash = '';
                 }}
                 className="text-[11px] text-slate-400 hover:text-white underline font-medium"
               >
-                Ganti Akun
+                Ganti Token
               </button>
             </div>
 
@@ -197,16 +251,41 @@ export default function AuthGate() {
               </div>
             )}
 
-            {/* MODE 1: NUMERIC PIN KEYPAD */}
+            {/* MODE 1: NUMERIC PIN KEYPAD & KEYBOARD INPUT */}
             {authMode === 'pin' && (
               <div className="space-y-4">
                 <div className="text-center">
-                  <div className="text-xs text-slate-400 mb-2">
-                    Masukkan {targetAccount.pin?.length || 6}-digit PIN Keamanan Anda:
+                  <div className="text-xs text-slate-300 font-medium mb-1">
+                    Masukkan {targetAccount.pin?.length || 6}-digit PIN Keamanan:
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Ketik langsung di keyboard laptop/PC atau sentuh tombol di bawah
                   </div>
 
-                  {/* PIN Dots */}
-                  <div className="flex justify-center items-center gap-3 my-3">
+                  {/* Hidden / Transparent input to capture laptop keyboard and mobile keyboards */}
+                  <input
+                    ref={pinInputRef}
+                    type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={targetAccount.pin?.length || 6}
+                    value={inputPin}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setInputPin(val);
+                      if (val.length === (targetAccount.pin?.length || 6)) {
+                        attemptPinLogin(val);
+                      }
+                    }}
+                    className="opacity-0 absolute -z-10 pointer-events-none"
+                    autoFocus
+                  />
+
+                  {/* Visual PIN Dots Indicator */}
+                  <div 
+                    onClick={() => pinInputRef.current && pinInputRef.current.focus()}
+                    className="flex justify-center items-center gap-3 my-4 cursor-pointer"
+                  >
                     {Array.from({ length: targetAccount.pin?.length || 6 }).map((_, idx) => (
                       <div
                         key={idx}
@@ -218,20 +297,16 @@ export default function AuthGate() {
                       />
                     ))}
                   </div>
-
-                  <div className="text-[10px] text-slate-500">
-                    PIN default demo akun ini: <strong className="text-emerald-400 font-mono">{targetAccount.pin}</strong>
-                  </div>
                 </div>
 
-                {/* Keypad 0-9 */}
+                {/* On-screen Keypad 0-9 (for Touchscreen Phones/Tablets) */}
                 <div className="grid grid-cols-3 gap-2.5 max-w-xs mx-auto">
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                     <button
                       key={num}
                       type="button"
                       onClick={() => handlePinDigit(String(num))}
-                      className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all"
+                      className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all select-none"
                     >
                       {num}
                     </button>
@@ -246,7 +321,7 @@ export default function AuthGate() {
                   <button
                     type="button"
                     onClick={() => handlePinDigit('0')}
-                    className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all"
+                    className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all select-none"
                   >
                     0
                   </button>
@@ -274,72 +349,58 @@ export default function AuthGate() {
             )}
           </div>
         ) : (
-          /* NO TARGET / IDLE GATE: WAITING FOR MAGIC LINK OR SELECT QUICK DEMO */
+          /* INITIAL PAGE: ONLY TOKEN INPUT AS REQUESTED BY USER */
           <div className="bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-slate-700 shadow-2xl space-y-6">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 rounded-3xl bg-emerald-950 border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto mb-2">
                 <Lock className="w-8 h-8" />
               </div>
               <h2 className="text-xl font-bold text-white">
-                Autentikasi Akses Khusus
+                Autentikasi Magic Link
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
-                Setiap peran (Super Admin, Kasir Kantin, Laundry, Wartel, SPP, & Wali Santri) diamankan dengan <strong>Magic Link Resmi</strong> dari WhatsApp.
+                Silakan masukkan Token atau tempelkan Tautan Unik (Magic Link) resmi dari WhatsApp untuk mengakses portal keuangan santri.
               </p>
             </div>
 
-            {/* Manual Token Input */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-slate-300">
-                Punya Token Magic Link? Masukkan di sini:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Contoh: admin-isb-2026 atau wali-hendra"
-                  onChange={(e) => setActiveToken(e.target.value.trim())}
-                  className="flex-1 px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-emerald-300 focus:border-emerald-500 outline-none"
-                />
+            {/* Error Message if Token Invalid */}
+            {errorMsg && (
+              <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{errorMsg}</span>
               </div>
-            </div>
+            )}
 
-            {/* Fast Demo Switcher for Testing (No Manual Typing Needed!) */}
-            <div className="pt-2 border-t border-slate-700 space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
-                <Sparkles className="w-4 h-4" />
-                <span>Pilih Magic Link Cepat untuk Uji Coba:</span>
+            {/* Token Input Form */}
+            <form onSubmit={handleTokenSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Token atau Tautan Magic Link:
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tokenInput}
+                    onChange={(e) => {
+                      setTokenInput(e.target.value);
+                      setErrorMsg('');
+                    }}
+                    placeholder="Contoh: admin-isb-2026 atau tempel tautan WA..."
+                    autoFocus
+                    className="w-full px-4 py-3 bg-slate-900 border-2 border-slate-700 focus:border-emerald-500 rounded-2xl text-xs font-mono text-emerald-300 outline-none transition-all placeholder:text-slate-500"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
-                {demoTokens.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.token}
-                      type="button"
-                      onClick={() => {
-                        playSound('beep');
-                        setActiveToken(item.token);
-                        window.location.hash = `token=${item.token}`;
-                      }}
-                      className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-750 border border-slate-700 hover:border-emerald-500 text-left transition-all group flex items-center gap-2.5"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-slate-800 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="overflow-hidden">
-                        <div className="text-xs font-bold text-white group-hover:text-emerald-300 truncate">
-                          {item.label}
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono truncate">
-                          #{item.token}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+              <button
+                type="submit"
+                disabled={!tokenInput.trim()}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-transform active:scale-98 flex items-center justify-center gap-2 text-xs"
+              >
+                <span>Lanjutkan Akses Portal</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
           </div>
         )}
       </div>

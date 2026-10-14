@@ -6,6 +6,7 @@ export const INITIAL_PESANTREN_INFO = {
   address: "Jl. Raya Jatibarang - Brebes No. 12, Jawa Tengah",
   phone: "0812-3456-7890",
   whatsappAdmin: "6281234567890",
+  appBaseUrl: "https://ponpes-imamsyafii.github.io/maisya-saku/",
   bankAccounts: [
     {
       bank: "Bank Syariah Indonesia (BSI)",

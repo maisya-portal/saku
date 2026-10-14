@@ -111,24 +111,14 @@ export default function RoleAdminBendahara() {
 
   // Generate WhatsApp Magic Link for Staff Roles (Opens editable modal)
   const handleSendRoleMagicLink = (roleAcc) => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const magicUrl = `${baseUrl}#token=${roleAcc.token}`;
-
-    const text = 
-      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
-      `Kepada Yth. *${roleAcc.name}* (${roleAcc.title})\n` +
-      `Berikut adalah *Tautan Masuk Aman (Magic Link)* Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
-      `🔗 ${magicUrl}\n\n` +
-      `PIN Masuk Anda: *${roleAcc.pin}*\n` +
-      `(Anda juga dapat masuk menggunakan sensor sidik jari pada layar HP/tablet).\n\n` +
-      `Harap jaga kerahasiaan tautan dan PIN ini.`;
-
     setWhatsAppModal({
       isOpen: true,
       title: 'Kirim Magic Link ke Petugas',
       recipientName: `${roleAcc.name} (${roleAcc.title})`,
       initialPhone: roleAcc.phone || '',
-      defaultMessage: text,
+      token: roleAcc.token,
+      pin: roleAcc.pin,
+      isRole: true,
       onSavePhone: (newPhone) => {
         updateRoleAccount(roleAcc.id, { phone: newPhone });
       }
@@ -137,27 +127,17 @@ export default function RoleAdminBendahara() {
 
   // Generate WhatsApp Magic Link for Wali Santri (Opens editable modal)
   const handleSendWaliMagicLink = (santri) => {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const magicUrl = `${baseUrl}#token=${santri.parentToken}`;
     const siblings = santriList.filter(s => s.parentToken === santri.parentToken);
     const siblingsName = siblings.map(s => s.name).join(' & ');
-
-    const text = 
-      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
-      `Kepada Yth. Bapak/Ibu Wali Santri dari ananda:\n` +
-      `*${siblingsName}*\n\n` +
-      `Berikut adalah *Tautan Portal Keuangan Maisya-Saku* Ma'had Imam Syafi'i Brebes:\n\n` +
-      `🔗 ${magicUrl}\n\n` +
-      `PIN Masuk: *${santri.pin || '1234'}* (atau gunakan sidik jari HP/tablet)\n\n` +
-      `Melalui tautan di atas Anda dapat memantau saldo realtime, mengatur batas jajan harian, transfer uang saku, dan melihat riwayat belanja santri.\n` +
-      `Jazakumullahu khairan.`;
 
     setWhatsAppModal({
       isOpen: true,
       title: 'Kirim Magic Link ke Wali Santri',
       recipientName: `${santri.parentName} (Wali dari ${siblingsName})`,
       initialPhone: santri.parentPhone || '',
-      defaultMessage: text,
+      token: santri.parentToken,
+      pin: santri.pin || '1234',
+      isRole: false,
       onSavePhone: (newPhone) => {
         updateSantri(santri.id, { parentPhone: newPhone });
       }
@@ -1471,7 +1451,9 @@ export default function RoleAdminBendahara() {
         title={whatsAppModal.title}
         recipientName={whatsAppModal.recipientName}
         initialPhone={whatsAppModal.initialPhone}
-        defaultMessage={whatsAppModal.defaultMessage}
+        token={whatsAppModal.token}
+        pin={whatsAppModal.pin}
+        isRole={whatsAppModal.isRole}
         onSavePhone={whatsAppModal.onSavePhone}
         showToast={showToast}
       />

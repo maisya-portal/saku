@@ -22,6 +22,7 @@ import {
   query, 
   orderBy 
 } from 'firebase/firestore';
+import { formatPhoneNumber } from '../utils/whatsapp';
 
 const AppContext = createContext(null);
 
@@ -382,11 +383,16 @@ export function AppProvider({ children }) {
         role: 'wali',
         id: first.parentToken,
         name: first.parentName,
-        title: `Wali Santri dari ${santriMatch.map(s => s.name).join(' & ')}`,
+        title: `Wali Santri dari ${santriMatch.map(s => `${s.name} (${s.nis})`).join(' & ')}`,
         token: first.parentToken,
         pin: first.pin || '1234',
         avatar: first.avatar,
-        childrenCount: santriMatch.length
+        phone: first.parentPhone || '',
+        childrenCount: santriMatch.length,
+        children: santriMatch,
+        fingerprintStatus: first.fingerprintStatus || 'NOT_REGISTERED',
+        fingerprintRegisteredAt: first.fingerprintRegisteredAt || null,
+        fingerprintApprovedAt: first.fingerprintApprovedAt || null
       };
     }
 
@@ -514,6 +520,172 @@ export function AppProvider({ children }) {
     broadcastState({ pesantrenInfo: info });
     showToast('Informasi Pesantren berhasil diperbarui!', 'success');
   }, [broadcastState, showToast]);
+
+  // WALI SANTRI: Registrasi & Pembuatan Magic Link Mandiri (Multi-Anak)
+  const registerWaliSantri = useCallback(({ parentName, parentPhone, childrenList }) => {
+    const cleanPhone = formatPhoneNumber(parentPhone);
+    const token = `wali-${cleanPhone.slice(-4)}-${Date.now().toString(36).slice(-4)}`;
+
+    let updatedSantriList = [...santriList];
+
+    childrenList.forEach((child, idx) => {
+      const childName = (child.name || '').trim();
+      const childIsb = (child.isb || '').trim();
+      if (!childName) return;
+
+      // Find if exists
+      const existingIdx = updatedSantriList.findIndex(s => {
+        const sNis = (s.nis || '').toLowerCase();
+        const sBarcode = (s.barcode || '').toLowerCase();
+        const sCleanNis = sNis.replace(/[^0-9]/g, '');
+        const targetCleanIsb = childIsb.toLowerCase().replace(/[^0-9]/g, '');
+
+        return (
+          (targetCleanIsb && (sNis === childIsb.toLowerCase() || sBarcode === childIsb.toLowerCase() || sCleanNis === targetCleanIsb)) ||
+          s.name.toLowerCase() === childName.toLowerCase()
+        );
+      });
+
+      if (existingIdx >= 0) {
+        // Update existing santri with parent info and new token
+        updatedSantriList[existingIdx] = {
+          ...updatedSantriList[existingIdx],
+          parentName,
+          parentPhone: cleanPhone,
+          parentToken: token,
+          fingerprintStatus: 'NOT_REGISTERED',
+          fingerprintRegisteredAt: null,
+          fingerprintApprovedAt: null
+        };
+      } else {
+        // Create new santri entry
+        const cleanIsbNumber = childIsb || `${new Date().getFullYear()}${String(updatedSantriList.length + 1).padStart(4, '0')}`;
+        const newSantri = {
+          id: `santri-gen-${Date.now()}-${idx}`,
+          nis: cleanIsbNumber,
+          name: childName,
+          class: 'Santri Baru',
+          halaqah: "Ma'had Imam Syafi'i",
+          room: 'Asrama Santri',
+          rfidTag: `RFID-${Math.floor(100000 + Math.random() * 900000)}`,
+          barcode: `ISB${cleanIsbNumber.replace(/[^0-9]/g, '') || '0000'}`,
+          balance: 0,
+          parentName,
+          parentPhone: cleanPhone,
+          parentToken: token,
+          fingerprintStatus: 'NOT_REGISTERED',
+          fingerprintRegisteredAt: null,
+          fingerprintApprovedAt: null,
+          spendingLimit: {
+            type: 'daily',
+            amount: 25000,
+            active: true
+          },
+          spendingUsed: {
+            daily: 0,
+            weekly: 0,
+            monthly: 0,
+            lastResetDate: new Date().toISOString().split('T')[0]
+          },
+          pin: '1234',
+          avatar: `https://images.unsplash.com/photo-${1534528741775 + idx}?w=150&auto=format&fit=crop&q=80`
+        };
+        updatedSantriList.push(newSantri);
+      }
+    });
+
+    setSantriList(updatedSantriList);
+    broadcastState({ santriList: updatedSantriList });
+    playSound('success');
+
+    const effectiveBase = pesantrenInfo.appBaseUrl || `${window.location.origin}${window.location.pathname}`;
+    const cleanBase = effectiveBase.endsWith('/') ? effectiveBase : `${effectiveBase}/`;
+    const fullLink = `${cleanBase}#token=${token}`;
+
+    return {
+      token,
+      fullLink,
+      cleanPhone,
+      parentName,
+      children: childrenList
+    };
+  }, [santriList, pesantrenInfo, broadcastState]);
+
+  // WALI SANTRI: Permohonan Pendaftaran Sidik Jari (Enrollment)
+  const requestFingerprintEnrollment = useCallback((parentToken, method = 'TOUCH_SCREEN_FINGER') => {
+    const updated = santriList.map(s => {
+      if (s.parentToken === parentToken) {
+        return {
+          ...s,
+          fingerprintStatus: 'PENDING_APPROVAL',
+          fingerprintRegisteredAt: new Date().toISOString(),
+          fingerprintRegisteredMethod: method
+        };
+      }
+      return s;
+    });
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('success');
+    showToast('Sidik jari berhasil direkam! Menunggu persetujuan Admin Ma\'had.', 'info');
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Setujui (Approve) Biometrik Wali Santri
+  const approveFingerprint = useCallback((parentToken) => {
+    const updated = santriList.map(s => {
+      if (s.parentToken === parentToken) {
+        return {
+          ...s,
+          fingerprintStatus: 'APPROVED',
+          fingerprintApprovedAt: new Date().toISOString(),
+          fingerprintApprovalNote: 'Disetujui oleh Super Admin'
+        };
+      }
+      return s;
+    });
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('success');
+    showToast('Pendaftaran biometrik wali santri telah disetujui!', 'success');
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Tolak (Reject) Biometrik Wali Santri
+  const rejectFingerprint = useCallback((parentToken, reason = 'Data identitas tidak sesuai') => {
+    const updated = santriList.map(s => {
+      if (s.parentToken === parentToken) {
+        return {
+          ...s,
+          fingerprintStatus: 'REJECTED',
+          fingerprintApprovalNote: reason
+        };
+      }
+      return s;
+    });
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('beep');
+    showToast('Pendaftaran biometrik ditolak.', 'error');
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Reset Biometrik Wali Santri
+  const resetFingerprint = useCallback((parentToken) => {
+    const updated = santriList.map(s => {
+      if (s.parentToken === parentToken) {
+        return {
+          ...s,
+          fingerprintStatus: 'NOT_REGISTERED',
+          fingerprintRegisteredAt: null,
+          fingerprintApprovedAt: null,
+          fingerprintApprovalNote: null
+        };
+      }
+      return s;
+    });
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('beep');
+    showToast('Status biometrik berhasil direset.', 'info');
+  }, [santriList, broadcastState, showToast]);
 
   // Spending Limit Verification
   const checkSpendingLimit = useCallback((santri, amountToSpend) => {
@@ -993,6 +1165,13 @@ export function AppProvider({ children }) {
     saveProduct,
     deleteProduct,
     paySppBill,
+
+    // Wali Santri & Biometrics Enrollment
+    registerWaliSantri,
+    requestFingerprintEnrollment,
+    approveFingerprint,
+    rejectFingerprint,
+    resetFingerprint,
 
     // Toast & Alerts
     toast,

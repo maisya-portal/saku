@@ -223,7 +223,7 @@ export default function RoleWaliSantri() {
                     />
                     <div className="overflow-hidden">
                       <div className="truncate text-sm">{child.name}</div>
-                      <div className="text-xs opacity-80">{child.class} • NIS {child.nis}</div>
+                      <div className="text-xs opacity-90">{child.class} • Nomor ISB: <span className="font-mono font-bold">{child.nis}</span></div>
                     </div>
                   </button>
                 ))}
@@ -235,7 +235,7 @@ export default function RoleWaliSantri() {
               <span>•</span>
               <span>{currentChild.class}</span>
               <span>•</span>
-              <span>NIS: {currentChild.nis}</span>
+              <span>Nomor ISB: <strong className="font-mono text-white">{currentChild.nis}</strong></span>
             </div>
           )}
 

@@ -5,10 +5,20 @@ import {
   KeyRound, 
   ShieldCheck, 
   ArrowRight, 
-  AlertCircle
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  RotateCcw,
+  MessageSquare,
+  Sparkles,
+  ExternalLink,
+  ChevronRight,
+  ShieldAlert
 } from 'lucide-react';
 import { useApp, playSound } from '../context/AppContext';
 import BiometricTouchPad from './BiometricTouchPad';
+import WaliLinkGenerator from './WaliLinkGenerator';
+import { openWhatsAppDirect } from '../utils/whatsapp';
 import confetti from 'canvas-confetti';
 
 export default function AuthGate() {
@@ -18,11 +28,14 @@ export default function AuthGate() {
     resolveTargetFromToken, 
     loginWithPin, 
     loginWithBiometric, 
-    pesantrenInfo 
+    requestFingerprintEnrollment,
+    approveFingerprint,
+    resetFingerprint,
+    pesantrenInfo,
+    santriList
   } = useApp();
 
   const [activeToken, setActiveToken] = useState(urlToken || '');
-  const [tokenInput, setTokenInput] = useState('');
   const [targetAccount, setTargetAccount] = useState(null);
   const [authMode, setAuthMode] = useState('pin'); // 'pin' | 'biometric'
   const [inputPin, setInputPin] = useState('');
@@ -40,7 +53,18 @@ export default function AuthGate() {
     return trimmed.replace(/^#/, '');
   };
 
-  // Update target when activeToken changes
+  // Sync with URL changes
+  useEffect(() => {
+    const handleHash = () => {
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+      const tok = hashParams.get('token') || '';
+      setActiveToken(tok);
+    };
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  // Update target when activeToken or santriList changes
   useEffect(() => {
     if (activeToken) {
       const clean = parseTokenString(activeToken);
@@ -48,14 +72,22 @@ export default function AuthGate() {
       setTargetAccount(found);
       setInputPin('');
       setErrorMsg('');
+
       if (found) {
         window.location.hash = `token=${clean}`;
+        // If Wali Santri and approved, default to biometric touch as requested
+        if (found.type === 'wali') {
+          setAuthMode('biometric');
+        } else {
+          setAuthMode('pin');
+        }
       }
     } else {
       setTargetAccount(null);
     }
-  }, [activeToken, resolveTargetFromToken]);
+  }, [activeToken, resolveTargetFromToken, santriList]);
 
+  // PIN Login
   const attemptPinLogin = useCallback((pinToTest) => {
     try {
       loginWithPin(targetAccount, pinToTest);
@@ -100,7 +132,6 @@ export default function AuthGate() {
     if (!targetAccount || authMode !== 'pin') return;
 
     const handleKeyDown = (e) => {
-      // Don't intercept if user is typing in another input
       if (e.target.tagName === 'INPUT' && e.target !== pinInputRef.current) return;
 
       if (e.key >= '0' && e.key <= '9') {
@@ -124,13 +155,7 @@ export default function AuthGate() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [targetAccount, authMode, inputPin, handlePinDigit, handlePinBackspace, handleClearPin, attemptPinLogin]);
 
-  // Keep focus on PIN input on desktop
-  useEffect(() => {
-    if (targetAccount && authMode === 'pin' && pinInputRef.current) {
-      pinInputRef.current.focus();
-    }
-  }, [targetAccount, authMode]);
-
+  // Biometric Login (Verification successful)
   const handleBiometricSuccess = (method) => {
     try {
       loginWithBiometric(targetAccount, method);
@@ -140,30 +165,39 @@ export default function AuthGate() {
     }
   };
 
-  // Submit token from manual input on initial page
-  const handleTokenSubmit = (e) => {
-    e.preventDefault();
-    const clean = parseTokenString(tokenInput);
-    if (!clean) {
-      setErrorMsg('Silakan masukkan token atau tautan yang valid.');
-      return;
-    }
-    const found = resolveTargetFromToken(clean);
-    if (!found) {
-      playSound('error');
-      setErrorMsg(`Token "${clean}" tidak terdaftar dalam sistem.`);
-      return;
-    }
-    playSound('beep');
-    setActiveToken(clean);
-    setErrorMsg('');
+  // Biometric Registration (Enrollment step for newly registered wali)
+  const handleFingerprintEnrollment = (method) => {
+    if (!targetAccount) return;
+    requestFingerprintEnrollment(targetAccount.token, method);
+    confetti({ particleCount: 60, spread: 50 });
   };
+
+  // Contact Admin Bendahara via WhatsApp for quick approval
+  const handleContactAdminWA = () => {
+    if (!pesantrenInfo.whatsappAdmin || !targetAccount) return;
+    const msg = 
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh Bendahara Ma'had Imam Syafi'i Brebes.\n` +
+      `Saya Bapak/Ibu *${targetAccount.name}* (${targetAccount.title}).\n` +
+      `Telah berhasil mendaftarkan sidik jari biometrik pada sistem Maisya-Saku.\n` +
+      `Mohon dibantu verifikasi & persetujuannya agar dapat masuk ke portal keuangan. Syukran jazakumullahu khairan.`;
+    openWhatsAppDirect(pesantrenInfo.whatsappAdmin, msg);
+  };
+
+  // IF NO TOKEN OR TOKEN INVALID: RENDER WALI LINK GENERATOR DIRECTLY!
+  // (Replaces the manual token prompt completely as requested by user)
+  if (!activeToken || !targetAccount) {
+    return <WaliLinkGenerator />;
+  }
+
+  // Determine Fingerprint Enrollment State for Wali Santri
+  const isWali = targetAccount.type === 'wali';
+  const fpStatus = isWali ? (targetAccount.fingerprintStatus || 'NOT_REGISTERED') : 'APPROVED';
 
   return (
     <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-4 sm:p-6 selection:bg-emerald-500 selection:text-white">
       {/* Top Header */}
-      <div className="max-w-md w-full mx-auto text-center pt-4">
-        <div className="inline-flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-bold mb-3">
+      <div className="max-w-md w-full mx-auto text-center pt-3">
+        <div className="inline-flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-bold mb-3 shadow-sm">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
           <span>Gerbang Akses Terenkripsi Maisya-Saku</span>
         </div>
@@ -176,233 +210,295 @@ export default function AuthGate() {
       </div>
 
       {/* Main Authentication Container */}
-      <div className="max-w-md w-full mx-auto my-auto py-6">
-        {targetAccount ? (
-          <div className="bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-slate-700 shadow-2xl space-y-6 animate-in fade-in zoom-in-95">
-            {/* Account Profile Badge */}
-            <div className="flex items-center justify-between border-b border-slate-700 pb-4">
-              <div className="flex items-center gap-3">
-                <img
-                  src={targetAccount.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"}
-                  alt={targetAccount.name}
-                  className="w-12 h-12 rounded-2xl object-cover border-2 border-emerald-500/50"
-                />
-                <div>
-                  <div className="text-sm font-black text-white leading-tight">
-                    {targetAccount.name}
-                  </div>
-                  <div className="text-xs text-emerald-400 font-semibold mt-0.5">
-                    {targetAccount.title}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                    Token: {targetAccount.token}
-                  </div>
+      <div className="max-w-md w-full mx-auto my-auto py-5">
+        <div className="bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-slate-700 shadow-2xl space-y-6 animate-in fade-in zoom-in-95">
+          {/* Account Profile Badge */}
+          <div className="flex items-center justify-between border-b border-slate-700 pb-4">
+            <div className="flex items-center gap-3">
+              <img
+                src={targetAccount.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"}
+                alt={targetAccount.name}
+                className="w-12 h-12 rounded-2xl object-cover border-2 border-emerald-500/50 shadow-md"
+              />
+              <div className="overflow-hidden">
+                <div className="text-sm font-black text-white leading-tight truncate">
+                  {targetAccount.name}
+                </div>
+                <div className="text-xs text-emerald-400 font-semibold mt-0.5 truncate">
+                  {targetAccount.title}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  Token: {targetAccount.token}
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveToken('');
-                  setTargetAccount(null);
-                  setTokenInput('');
-                  window.location.hash = '';
-                }}
-                className="text-[11px] text-slate-400 hover:text-white underline font-medium"
-              >
-                Ganti Token
-              </button>
             </div>
 
-            {/* Mode Selector (PIN vs Biometrik Touch) */}
-            <div className="flex bg-slate-900/80 p-1 rounded-2xl border border-slate-700">
-              <button
-                type="button"
-                onClick={() => setAuthMode('pin')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  authMode === 'pin'
-                    ? 'bg-emerald-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Masuk dengan PIN</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAuthMode('biometric')}
-                className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                  authMode === 'biometric'
-                    ? 'bg-emerald-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Fingerprint className="w-3.5 h-3.5" />
-                <span>Sidik Jari Biometrik</span>
-              </button>
-            </div>
-
-            {/* Error Message */}
-            {errorMsg && (
-              <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {/* MODE 1: NUMERIC PIN KEYPAD & KEYBOARD INPUT */}
-            {authMode === 'pin' && (
-              <div className="space-y-4">
-                <div className="text-center">
-                  <div className="text-xs text-slate-300 font-medium mb-1">
-                    Masukkan {targetAccount.pin?.length || 6}-digit PIN Keamanan:
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Ketik langsung di keyboard laptop/PC atau sentuh tombol di bawah
-                  </div>
-
-                  {/* Hidden / Transparent input to capture laptop keyboard and mobile keyboards */}
-                  <input
-                    ref={pinInputRef}
-                    type="password"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={targetAccount.pin?.length || 6}
-                    value={inputPin}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      setInputPin(val);
-                      if (val.length === (targetAccount.pin?.length || 6)) {
-                        attemptPinLogin(val);
-                      }
-                    }}
-                    className="opacity-0 absolute -z-10 pointer-events-none"
-                    autoFocus
-                  />
-
-                  {/* Visual PIN Dots Indicator */}
-                  <div 
-                    onClick={() => pinInputRef.current && pinInputRef.current.focus()}
-                    className="flex justify-center items-center gap-3 my-4 cursor-pointer"
-                  >
-                    {Array.from({ length: targetAccount.pin?.length || 6 }).map((_, idx) => (
-                      <div
-                        key={idx}
-                        className={`w-4 h-4 rounded-full transition-all duration-150 ${
-                          idx < inputPin.length
-                            ? 'bg-emerald-400 scale-125 shadow-sm shadow-emerald-400/80'
-                            : 'bg-slate-700 border border-slate-600'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* On-screen Keypad 0-9 (for Touchscreen Phones/Tablets) */}
-                <div className="grid grid-cols-3 gap-2.5 max-w-xs mx-auto">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => handlePinDigit(String(num))}
-                      className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all select-none"
-                    >
-                      {num}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleClearPin}
-                    className="py-3 bg-slate-800 hover:bg-slate-750 active:scale-95 text-xs font-bold text-slate-400 rounded-2xl transition-all"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handlePinDigit('0')}
-                    className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all select-none"
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePinBackspace}
-                    className="py-3 bg-slate-800 hover:bg-slate-750 active:scale-95 text-xs font-bold text-slate-400 rounded-2xl transition-all"
-                  >
-                    ⌫ Hapus
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* MODE 2: BIOMETRIC TOUCH PAD */}
-            {authMode === 'biometric' && (
-              <div>
-                <BiometricTouchPad
-                  santriName={targetAccount.name}
-                  title="Otorisasi Biometrik"
-                  subtitle="Tempelkan sidik jari pada lingkaran sensor di bawah layar HP/tablet atau gunakan pemindai sidik jari fisik"
-                  onVerified={handleBiometricSuccess}
-                />
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveToken('');
+                setTargetAccount(null);
+                window.location.hash = '';
+              }}
+              className="text-[11px] text-slate-400 hover:text-white underline font-medium shrink-0 ml-2"
+            >
+              Keluar
+            </button>
           </div>
-        ) : (
-          /* INITIAL PAGE: ONLY TOKEN INPUT AS REQUESTED BY USER */
-          <div className="bg-slate-800/90 backdrop-blur-xl rounded-3xl p-6 sm:p-8 border border-slate-700 shadow-2xl space-y-6">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 rounded-3xl bg-emerald-950 border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto mb-2">
-                <Lock className="w-8 h-8" />
+
+          {/* WALI SANTRI STATE 1: NOT REGISTERED (MUST ENROLL FINGERPRINT FIRST) */}
+          {isWali && fpStatus === 'NOT_REGISTERED' && (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-amber-950/50 border border-amber-500/40 rounded-2xl space-y-1.5 text-center">
+                <div className="inline-flex items-center gap-1.5 text-amber-300 font-bold text-xs">
+                  <Fingerprint className="w-4 h-4 text-amber-400" />
+                  <span>Tahap 1: Pendaftaran Sidik Jari Biometrik</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Demi keamanan saldo tabungan ananda, akses Maisya-Saku mewajibkan verifikasi sidik jari biometrik. Silakan rekam sidik jari Anda di bawah.
+                </p>
               </div>
-              <h2 className="text-xl font-bold text-white">
-                Autentikasi Magic Link
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
-                Silakan masukkan Token atau tempelkan Tautan Unik (Magic Link) resmi dari WhatsApp untuk mengakses portal keuangan santri.
+
+              <BiometricTouchPad
+                santriName={targetAccount.name}
+                title="Daftarkan Sidik Jari Anda"
+                subtitle="Tempelkan & tahan jari pada area sensor di bawah layar HP/tablet hingga lingkaran penuh (100%)"
+                onVerified={handleFingerprintEnrollment}
+              />
+            </div>
+          )}
+
+          {/* WALI SANTRI STATE 2: PENDING ADMIN APPROVAL */}
+          {isWali && fpStatus === 'PENDING_APPROVAL' && (
+            <div className="space-y-5 text-center py-2">
+              <div className="w-16 h-16 rounded-3xl bg-amber-950/70 border-2 border-amber-500/50 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                <Clock className="w-8 h-8 animate-pulse" />
+              </div>
+
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-black text-white">
+                  Menunggu Persetujuan Admin
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
+                  Sidik jari Anda telah berhasil direkam! Demi keamanan dana santri, permohonan akses Anda sedang dalam antrean verifikasi oleh <strong>Bendahara Ma'had Imam Syafi'i Brebes</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 bg-slate-900/90 rounded-2xl border border-slate-700 text-left space-y-1 text-xs">
+                <div className="flex justify-between text-slate-400">
+                  <span>Status Verifikasi:</span>
+                  <span className="text-amber-400 font-bold bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800">
+                    Menunggu Persetujuan
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Wali Santri:</span>
+                  <span className="text-white font-medium">{targetAccount.name}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Waktu Pengajuan:</span>
+                  <span className="text-slate-300 font-mono text-[11px]">
+                    {targetAccount.fingerprintRegisteredAt 
+                      ? new Date(targetAccount.fingerprintRegisteredAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) 
+                      : 'Baru saja'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleContactAdminWA}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-transform active:scale-98"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Hubungi Bendahara via WhatsApp</span>
+                </button>
+
+                {/* Developer Simulator for Instant Testing */}
+                <button
+                  type="button"
+                  onClick={() => approveFingerprint(targetAccount.token)}
+                  className="w-full bg-slate-900 hover:bg-slate-750 text-amber-400 border border-amber-500/30 font-semibold py-2.5 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Simulasi Uji Coba: Langsung Setujui Sekarang</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                Begitu disetujui, Anda cukup membuka kembali link login dari WhatsApp dan menempelkan sidik jari untuk langsung masuk.
               </p>
             </div>
+          )}
 
-            {/* Error Message if Token Invalid */}
-            {errorMsg && (
-              <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-                <span>{errorMsg}</span>
+          {/* WALI SANTRI STATE 3: REJECTED */}
+          {isWali && fpStatus === 'REJECTED' && (
+            <div className="space-y-4 text-center py-2">
+              <div className="w-16 h-16 rounded-3xl bg-rose-950/70 border-2 border-rose-500/50 text-rose-400 flex items-center justify-center mx-auto">
+                <ShieldAlert className="w-8 h-8" />
               </div>
-            )}
 
-            {/* Token Input Form */}
-            <form onSubmit={handleTokenSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  Token atau Tautan Magic Link:
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={tokenInput}
-                    onChange={(e) => {
-                      setTokenInput(e.target.value);
-                      setErrorMsg('');
-                    }}
-                    placeholder="Contoh: admin-isb-2026 atau tempel tautan WA..."
-                    autoFocus
-                    className="w-full px-4 py-3 bg-slate-900 border-2 border-slate-700 focus:border-emerald-500 rounded-2xl text-xs font-mono text-emerald-300 outline-none transition-all placeholder:text-slate-500"
-                  />
-                </div>
+                <h3 className="text-lg font-black text-white">
+                  Pendaftaran Sidik Jari Ditolak
+                </h3>
+                <p className="text-xs text-rose-300 mt-1">
+                  Mohon maaf, permohonan verifikasi biometrik tidak dapat disetujui oleh admin.
+                </p>
               </div>
 
               <button
-                type="submit"
-                disabled={!tokenInput.trim()}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-transform active:scale-98 flex items-center justify-center gap-2 text-xs"
+                type="button"
+                onClick={() => resetFingerprint(targetAccount.token)}
+                className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2"
               >
-                <span>Lanjutkan Akses Portal</span>
-                <ArrowRight className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4" />
+                <span>Daftar Ulang Sidik Jari</span>
               </button>
-            </form>
-          </div>
-        )}
+            </div>
+          )}
+
+          {/* NORMAL AUTHENTICATION FLOW: WHEN APPROVED OR STAFF ROLE */}
+          {(!isWali || fpStatus === 'APPROVED') && (
+            <>
+              {/* Mode Selector (PIN vs Biometrik Touch) */}
+              <div className="flex bg-slate-900/80 p-1 rounded-2xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('biometric')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    authMode === 'biometric'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Fingerprint className="w-3.5 h-3.5" />
+                  <span>Sidik Jari Biometrik</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('pin')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                    authMode === 'pin'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Masuk dengan PIN</span>
+                </button>
+              </div>
+
+              {/* Error Message */}
+              {errorMsg && (
+                <div className="p-3 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {/* MODE A: BIOMETRIC TOUCH PAD (PRIMARY) */}
+              {authMode === 'biometric' && (
+                <div>
+                  <BiometricTouchPad
+                    santriName={targetAccount.name}
+                    title="Verifikasi Sidik Jari Masuk"
+                    subtitle="Tempelkan sidik jari pada lingkaran sensor di bawah layar HP/tablet atau gunakan sensor sidik jari fisik"
+                    onVerified={handleBiometricSuccess}
+                  />
+                </div>
+              )}
+
+              {/* MODE B: NUMERIC PIN KEYPAD & KEYBOARD INPUT */}
+              {authMode === 'pin' && (
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-xs text-slate-300 font-medium mb-1">
+                      Masukkan {targetAccount.pin?.length || 6}-digit PIN Keamanan:
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Ketik langsung di keyboard laptop/PC atau sentuh tombol di bawah
+                    </div>
+
+                    {/* Hidden / Transparent input to capture keyboard */}
+                    <input
+                      ref={pinInputRef}
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={targetAccount.pin?.length || 6}
+                      value={inputPin}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        setInputPin(val);
+                        if (val.length === (targetAccount.pin?.length || 6)) {
+                          attemptPinLogin(val);
+                        }
+                      }}
+                      className="opacity-0 absolute -z-10 pointer-events-none"
+                      autoFocus
+                    />
+
+                    {/* Visual PIN Dots Indicator */}
+                    <div 
+                      onClick={() => pinInputRef.current && pinInputRef.current.focus()}
+                      className="flex justify-center items-center gap-3 my-4 cursor-pointer"
+                    >
+                      {Array.from({ length: targetAccount.pin?.length || 6 }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`w-4 h-4 rounded-full transition-all duration-150 ${
+                            idx < inputPin.length
+                              ? 'bg-emerald-400 scale-125 shadow-sm shadow-emerald-400/80'
+                              : 'bg-slate-700 border border-slate-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* On-screen Keypad 0-9 (for Touchscreen Phones/Tablets) */}
+                  <div className="grid grid-cols-3 gap-2.5 max-w-xs mx-auto">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handlePinDigit(String(num))}
+                        className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all select-none"
+                      >
+                        {num}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={handleClearPin}
+                      className="py-3 bg-slate-800 hover:bg-slate-750 active:scale-95 text-xs font-bold text-slate-400 rounded-2xl transition-all"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePinDigit('0')}
+                      className="py-3 bg-slate-750 hover:bg-slate-700 active:scale-95 text-lg font-bold text-white rounded-2xl border border-slate-700 shadow-sm transition-all select-none"
+                    >
+                      0
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePinBackspace}
+                      className="py-3 bg-slate-800 hover:bg-slate-750 active:scale-95 text-xs font-bold text-slate-400 rounded-2xl transition-all"
+                    >
+                      ⌫ Hapus
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Footer */}

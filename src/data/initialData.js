@@ -39,6 +39,9 @@ export const INITIAL_SANTRI = [
     parentName: "H. Bambang Irawan",
     parentPhone: "081234567891",
     parentToken: "wali-fatih",
+    fingerprintStatus: "APPROVED",
+    fingerprintRegisteredAt: "2026-10-10T08:00:00.000Z",
+    fingerprintApprovedAt: "2026-10-10T08:30:00.000Z",
     spendingLimit: {
       type: "daily", // 'none' | 'daily' | 'weekly' | 'monthly'
       amount: 25000,
@@ -66,6 +69,9 @@ export const INITIAL_SANTRI = [
     parentName: "dr. Hendra Pratama",
     parentPhone: "081234567892",
     parentToken: "wali-hendra", // Has 2 children (Abdullah & Hamzah)
+    fingerprintStatus: "APPROVED",
+    fingerprintRegisteredAt: "2026-10-11T09:00:00.000Z",
+    fingerprintApprovedAt: "2026-10-11T09:15:00.000Z",
     spendingLimit: {
       type: "daily",
       amount: 20000,
@@ -93,6 +99,9 @@ export const INITIAL_SANTRI = [
     parentName: "dr. Hendra Pratama",
     parentPhone: "081234567892",
     parentToken: "wali-hendra", // Sibling of Abdullah
+    fingerprintStatus: "APPROVED",
+    fingerprintRegisteredAt: "2026-10-11T09:00:00.000Z",
+    fingerprintApprovedAt: "2026-10-11T09:15:00.000Z",
     spendingLimit: {
       type: "weekly",
       amount: 150000,
@@ -120,6 +129,9 @@ export const INITIAL_SANTRI = [
     parentName: "H. Ahmad Fauzi",
     parentPhone: "081234567893",
     parentToken: "wali-fauzi",
+    fingerprintStatus: "PENDING_APPROVAL",
+    fingerprintRegisteredAt: "2026-10-15T14:30:00.000Z",
+    fingerprintApprovedAt: null,
     spendingLimit: {
       type: "daily",
       amount: 15000,

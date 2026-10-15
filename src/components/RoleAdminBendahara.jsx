@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Building2, 
   Check, 
@@ -26,9 +26,13 @@ import {
   Sliders,
   Settings,
   Phone,
-  Landmark
+  Landmark,
+  Fingerprint,
+  Clock,
+  RotateCcw
 } from 'lucide-react';
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
+import { openWhatsAppDirect } from '../utils/whatsapp';
 import { 
   getSavedFirebaseConfig, 
   saveFirebaseConfig, 
@@ -53,11 +57,39 @@ export default function RoleAdminBendahara() {
     topupRequests,
     approveTopup,
     rejectTopup,
+    approveFingerprint,
+    rejectFingerprint,
+    resetFingerprint,
     showToast
   } = useApp();
 
   // Active Tab
-  const [activeAdminTab, setActiveAdminTab] = useState('roles'); // 'roles' | 'santri' | 'approvals' | 'settings' | 'reports' | 'firebase'
+  const [activeAdminTab, setActiveAdminTab] = useState('roles'); // 'roles' | 'santri' | 'approvals' | 'biometric' | 'settings' | 'reports' | 'firebase'
+  const [biometricFilter, setBiometricFilter] = useState('all'); // 'all' | 'pending' | 'approved'
+
+  // Grouped Wali Santri for Biometric Verification
+  const waliBiometricList = useMemo(() => {
+    const map = new Map();
+    santriList.forEach(s => {
+      if (!s.parentToken) return;
+      if (!map.has(s.parentToken)) {
+        map.set(s.parentToken, {
+          parentToken: s.parentToken,
+          parentName: s.parentName || 'Wali Santri',
+          parentPhone: s.parentPhone || '',
+          fingerprintStatus: s.fingerprintStatus || 'NOT_REGISTERED',
+          fingerprintRegisteredAt: s.fingerprintRegisteredAt || null,
+          fingerprintApprovedAt: s.fingerprintApprovedAt || null,
+          fingerprintApprovalNote: s.fingerprintApprovalNote || null,
+          children: []
+        });
+      }
+      map.get(s.parentToken).children.push(s);
+    });
+    return Array.from(map.values());
+  }, [santriList]);
+
+  const pendingBiometricCount = waliBiometricList.filter(w => w.fingerprintStatus === 'PENDING_APPROVAL').length;
 
   // WhatsApp Dispatch Modal State
   const [whatsAppModal, setWhatsAppModal] = useState({
@@ -257,6 +289,24 @@ export default function RoleAdminBendahara() {
           {pendingTopups.length > 0 && (
             <span className="ml-2 bg-amber-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full">
               {pendingTopups.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveAdminTab('biometric')}
+          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
+            activeAdminTab === 'biometric'
+              ? 'bg-emerald-700 text-white shadow-sm'
+              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+          }`}
+        >
+          <Fingerprint className="w-4 h-4" />
+          <span>Verifikasi Biometrik Wali</span>
+          {pendingBiometricCount > 0 && (
+            <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+              {pendingBiometricCount}
             </span>
           )}
         </button>
@@ -628,6 +678,255 @@ export default function RoleAdminBendahara() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB: VERIFIKASI BIOMETRIK WALI SANTRI */}
+      {activeAdminTab === 'biometric' && (
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-bold text-slate-900">
+                  Verifikasi Pendaftaran Sidik Jari Biometrik Wali Santri
+                </h3>
+                {pendingBiometricCount > 0 && (
+                  <span className="bg-rose-500 text-white text-xs font-black px-2.5 py-0.5 rounded-full animate-pulse">
+                    {pendingBiometricCount} Menunggu
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Wali santri yang mendaftar via WhatsApp wajib diverifikasi biometriknya oleh Bendahara Ma'had demi keamanan dana tabungan santri.
+              </p>
+            </div>
+
+            {/* Quick KPI count */}
+            <div className="flex items-center gap-2">
+              <span className="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-emerald-200">
+                {waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length} Terverifikasi Aktif
+              </span>
+            </div>
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <button
+              type="button"
+              onClick={() => setBiometricFilter('all')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                biometricFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              }`}
+            >
+              Semua ({waliBiometricList.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBiometricFilter('pending')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                biometricFilter === 'pending'
+                  ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+              }`}
+            >
+              <span>Menunggu Verifikasi</span>
+              {pendingBiometricCount > 0 && (
+                <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                  {pendingBiometricCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBiometricFilter('approved')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                biometricFilter === 'approved'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+              }`}
+            >
+              Disetujui ({waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length})
+            </button>
+          </div>
+
+          {/* Biometrics List */}
+          {(() => {
+            const filtered = waliBiometricList.filter(w => {
+              if (biometricFilter === 'pending') return w.fingerprintStatus === 'PENDING_APPROVAL';
+              if (biometricFilter === 'approved') return w.fingerprintStatus === 'APPROVED';
+              return true;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div className="text-center py-12 text-slate-400 text-xs">
+                  Tidak ada permohonan biometrik dalam kategori ini.
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-3">
+                {filtered.map(w => {
+                  const isPending = w.fingerprintStatus === 'PENDING_APPROVAL';
+                  const isApproved = w.fingerprintStatus === 'APPROVED';
+                  const isRejected = w.fingerprintStatus === 'REJECTED';
+
+                  const handleSendApprovalWA = () => {
+                    const baseUrl = pesantrenInfo.appBaseUrl || `${window.location.origin}${window.location.pathname}`;
+                    const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+                    const link = `${cleanBase}#token=${w.parentToken}`;
+
+                    const msg = 
+                      `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
+                      `Kepada Yth. Bapak/Ibu *${w.parentName}*\n` +
+                      `Alhamdulillah, pendaftaran sidik jari biometrik Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes telah *DISETUJUI* oleh Admin/Bendahara.\n\n` +
+                      `Silakan klik tautan di bawah ini untuk masuk dan menempelkan sidik jari Anda:\n` +
+                      `${link}\n\n` +
+                      `Jazakumullahu khairan.`;
+
+                    openWhatsAppDirect(w.parentPhone, msg);
+                  };
+
+                  return (
+                    <div 
+                      key={w.parentToken}
+                      className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                        isPending 
+                          ? 'border-amber-300 bg-amber-50/50 shadow-sm' 
+                          : isApproved 
+                          ? 'border-emerald-200 bg-emerald-50/30' 
+                          : 'border-slate-200 bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3.5">
+                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                          isPending 
+                            ? 'bg-amber-100 text-amber-700' 
+                            : isApproved 
+                            ? 'bg-emerald-100 text-emerald-700' 
+                            : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          <Fingerprint className="w-6 h-6" />
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-slate-900 text-sm">{w.parentName}</h4>
+                            <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                              WA: {w.parentPhone || '-'}
+                            </span>
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                              isPending
+                                ? 'bg-amber-400 text-slate-900 animate-pulse'
+                                : isApproved
+                                ? 'bg-emerald-600 text-white'
+                                : isRejected
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}>
+                              {isPending ? 'Menunggu Verifikasi' : isApproved ? 'Terverifikasi' : isRejected ? 'Ditolak' : 'Belum Rekam'}
+                            </span>
+                          </div>
+
+                          {/* Children Summary */}
+                          <div className="text-xs text-slate-700 font-medium pt-0.5">
+                            <span className="text-slate-500">Santri: </span>
+                            {w.children.map((c, i) => (
+                              <span key={c.id} className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800 text-[11px] mr-1.5 my-0.5">
+                                <strong className="text-emerald-800">{c.name}</strong>
+                                <span className="text-slate-400">({c.class} • ISB: {c.nis})</span>
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2">
+                            <span>Token: #{w.parentToken}</span>
+                            {w.fingerprintRegisteredAt && (
+                              <span>• Diajukan: {formatDateTime(w.fingerprintRegisteredAt)}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2 self-end md:self-center">
+                        {isPending && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const reason = window.prompt('Alasan penolakan:', 'Identitas wali santri tidak sesuai catatan');
+                                if (reason) rejectFingerprint(w.parentToken, reason);
+                              }}
+                              className="p-2.5 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold"
+                              title="Tolak Permohonan"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                approveFingerprint(w.parentToken);
+                                confetti({ particleCount: 60, spread: 50 });
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Setujui (Approve)</span>
+                            </button>
+                          </>
+                        )}
+
+                        {isApproved && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={handleSendApprovalWA}
+                              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+                              title="Kirim pemberitahuan ke WhatsApp wali bahwa sidik jari sudah aktif"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Kirim Kabar ke WA</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(`Reset biometrik untuk ${w.parentName}? Wali santri harus merekam ulang sidik jarinya.`)) {
+                                  resetFingerprint(w.parentToken);
+                                }
+                              }}
+                              className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Reset Biometrik"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+
+                        {isRejected && (
+                          <button
+                            type="button"
+                            onClick={() => resetFingerprint(w.parentToken)}
+                            className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span>Beri Kesempatan Daftar Ulang</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       )}
 

@@ -951,7 +951,8 @@ export default function RoleAdminBendahara() {
                 name: form.get('name'),
                 tagline: form.get('tagline'),
                 address: form.get('address'),
-                whatsappAdmin: form.get('whatsappAdmin')
+                whatsappAdmin: form.get('whatsappAdmin'),
+                appBaseUrl: form.get('appBaseUrl') || 'https://ponpes-imamsyafii.github.io/maisya-saku/'
               });
             }}
             className="space-y-4 text-xs"
@@ -994,6 +995,21 @@ export default function RoleAdminBendahara() {
                 defaultValue={pesantrenInfo.address}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
               />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Domain Publik Aplikasi / Base URL Magic Link:
+              </label>
+              <input
+                name="appBaseUrl"
+                defaultValue={pesantrenInfo.appBaseUrl || 'https://ponpes-imamsyafii.github.io/maisya-saku/'}
+                placeholder="https://ponpes-imamsyafii.github.io/maisya-saku/"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-sky-600 outline-none"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">
+                Domain HTTPS publik ini disematkan pada pesan WhatsApp agar tautan otomatis bergaris bawah biru & bisa langsung diklik di ponsel wali santri.
+              </p>
             </div>
 
             <div className="pt-2">

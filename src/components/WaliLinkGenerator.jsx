@@ -198,15 +198,62 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
             </div>
 
             {/* Link Preview Box */}
-            <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                <span>Tautan Masuk Anda:</span>
-                <span className="text-[10px] text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800 font-bold">
-                  Tautan Aktif
-                </span>
+            <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <div>
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1">
+                  <span>Tautan Resmi WhatsApp (Domain Online):</span>
+                  <span className="text-[10px] text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800 font-bold">
+                    Otomatis Biru di HP
+                  </span>
+                </div>
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-300 dark:border-slate-800 font-mono text-xs text-sky-700 dark:text-sky-300 break-all select-all shadow-inner">
+                  {generatedResult.fullLink}
+                </div>
               </div>
-              <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-300 dark:border-slate-800 font-mono text-xs text-sky-700 dark:text-sky-300 break-all select-all shadow-inner">
-                {generatedResult.fullLink}
+
+              {generatedResult.localLink && generatedResult.localLink !== generatedResult.fullLink && (
+                <div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-semibold mb-1">
+                    <span>Tautan Uji Coba Laptop Ini (Localhost):</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(generatedResult.localLink);
+                        showToast('Tautan localhost laptop disalin!', 'success');
+                      }}
+                      className="text-[10px] text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 underline font-semibold flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Salin Localhost</span>
+                    </button>
+                  </div>
+                  <div className="p-2.5 bg-slate-100 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-slate-600 dark:text-slate-400 break-all select-all">
+                    {generatedResult.localLink}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Educational Alert: Why WhatsApp links are not clickable initially */}
+            <div className="p-4 rounded-2xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800/70 text-xs space-y-2">
+              <div className="font-bold flex items-center gap-1.5 text-sky-800 dark:text-sky-300">
+                <Info className="w-4 h-4 text-sky-500 shrink-0" />
+                <span>Kenapa tautan di WhatsApp belum berwarna biru?</span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                WhatsApp memiliki proteksi anti-spam di mana tautan dari <strong>nomor yang belum tersimpan di kontak HP</strong> awalnya dimatikan (berwarna teks biasa).
+              </p>
+              <div className="bg-white dark:bg-slate-900/90 p-3 rounded-xl border border-sky-100 dark:border-sky-900/50 text-slate-700 dark:text-slate-300 space-y-1.5 shadow-xs">
+                <div className="font-bold text-sky-700 dark:text-sky-400 text-[11px]">
+                  💡 2 Cara Mudah Mengaktifkannya:
+                </div>
+                <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
+                  <li><strong>Simpan nomor pengirim</strong> ke kontak buku telepon HP, ATAU</li>
+                  <li><strong>Balas pesan tersebut 1 kali</strong> (misal balas: <em>"Wa'alaikumussalam"</em> atau <em>"Ok"</em>).</li>
+                </ol>
+                <div className="text-[10px] text-sky-600 dark:text-sky-400 font-medium pt-0.5 border-t border-slate-100 dark:border-slate-800">
+                  ✓ Seketika seluruh tautan di obrolan akan otomatis berubah menjadi warna biru aktif & bisa langsung diklik!
+                </div>
               </div>
             </div>
 

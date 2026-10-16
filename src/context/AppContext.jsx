@@ -183,7 +183,17 @@ export function AppProvider({ children }) {
   // System & Collections
   const [pesantrenInfo, setPesantrenInfo] = useState(() => {
     const saved = localStorage.getItem('maisya_pesantren_info');
-    return saved ? JSON.parse(saved) : INITIAL_PESANTREN_INFO;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          ...INITIAL_PESANTREN_INFO,
+          ...parsed,
+          appBaseUrl: parsed.appBaseUrl || INITIAL_PESANTREN_INFO.appBaseUrl || 'https://ponpes-imamsyafii.github.io/maisya-saku/'
+        };
+      } catch (e) { /* ignore */ }
+    }
+    return INITIAL_PESANTREN_INFO;
   });
 
   const [products, setProducts] = useState(() => {
@@ -627,13 +637,24 @@ export function AppProvider({ children }) {
     broadcastState({ santriList: updatedSantriList });
     playSound('success');
 
-    const effectiveBase = pesantrenInfo.appBaseUrl || `${window.location.origin}${window.location.pathname}`;
+    // WhatsApp blocks 'localhost' from being clickable.
+    // For WhatsApp, use the public domain so WhatsApp renders an active, blue, clickable hyperlink!
+    const isLocalhost = typeof window !== 'undefined' && (
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' || 
+      window.location.hostname === ''
+    );
+
+    const publicDomain = pesantrenInfo.appBaseUrl || 'https://ponpes-imamsyafii.github.io/maisya-saku/';
+    const effectiveBase = isLocalhost ? publicDomain : `${window.location.origin}${window.location.pathname}`;
     const cleanBase = effectiveBase.endsWith('/') ? effectiveBase : `${effectiveBase}/`;
     const fullLink = `${cleanBase}#token=${token}`;
+    const localLink = `${window.location.origin}${window.location.pathname}#token=${token}`;
 
     return {
       token,
       fullLink,
+      localLink,
       cleanPhone,
       parentName,
       children: childrenList

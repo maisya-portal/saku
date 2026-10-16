@@ -19,7 +19,7 @@ function MainContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
+    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
       <Navbar />
 
       <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
@@ -32,15 +32,15 @@ function MainContent() {
         {currentRole === 'wali' && <RoleWaliSantri />}
       </main>
 
-      <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">
         <div className="max-w-7xl mx-auto px-4 space-y-1.5">
-          <div className="font-semibold text-slate-700">
+          <div className="font-semibold text-slate-700 dark:text-slate-300">
             Maisya-Saku • {pesantrenInfo.name}
           </div>
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-slate-400 dark:text-slate-500">
             {pesantrenInfo.tagline} • {pesantrenInfo.address}
           </div>
-          <div className="text-[10px] text-slate-400 pt-1">
+          <div className="text-[10px] text-slate-400 dark:text-slate-500 pt-1">
             Mendukung PWA, RFID Reader USB, Barcode Scanner & Otorisasi Biometrik Touch Screen
           </div>
         </div>

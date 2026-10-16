@@ -221,7 +221,7 @@ export default function RoleAdminBendahara() {
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div className="text-[11px] font-semibold text-slate-500">Total Setoran Masuk</div>
-          <div className="text-base font-black text-slate-900 mt-1">{formatRupiah(totalDeposits)}</div>
+          <div className="text-base font-black text-slate-900 dark:text-white mt-1">{formatRupiah(totalDeposits)}</div>
           <div className="text-[10px] text-slate-400 mt-0.5">Top-up Terverifikasi</div>
         </div>
 
@@ -287,7 +287,7 @@ export default function RoleAdminBendahara() {
         >
           <span>📥 Persetujuan Top-Up</span>
           {pendingTopups.length > 0 && (
-            <span className="ml-2 bg-amber-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full">
+            <span className="ml-2 bg-amber-400 text-slate-900 dark:text-white text-[10px] font-black px-2 py-0.5 rounded-full">
               {pendingTopups.length}
             </span>
           )}
@@ -350,10 +350,10 @@ export default function RoleAdminBendahara() {
 
       {/* TAB 1: MANAJEMEN ROLE PETUGAS & MAGIC LINKS */}
       {activeAdminTab === 'roles' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 Pengaturan Hak Akses & Kredensial Setiap Role
               </h3>
               <p className="text-xs text-slate-500 mt-1">
@@ -378,7 +378,7 @@ export default function RoleAdminBendahara() {
                       />
                       <div>
                         <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-slate-900 text-sm">{acc.name}</h4>
+                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">{acc.name}</h4>
                           <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
                             {acc.role}
                           </span>
@@ -402,7 +402,7 @@ export default function RoleAdminBendahara() {
                   <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">PIN Keamanan Petugas:</span>
-                      <span className="font-mono font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded tracking-widest">
+                      <span className="font-mono font-black text-slate-900 dark:text-white bg-slate-100 px-2 py-0.5 rounded tracking-widest">
                         {acc.pin}
                       </span>
                     </div>
@@ -450,10 +450,10 @@ export default function RoleAdminBendahara() {
 
       {/* TAB 2: DATABASE SANTRI & SMARTCARD */}
       {activeAdminTab === 'santri' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 Database Santri & Pengaturan Smartcard
               </h3>
               <p className="text-xs text-slate-500 mt-1">
@@ -508,7 +508,7 @@ export default function RoleAdminBendahara() {
                           className="w-9 h-9 rounded-xl object-cover border border-slate-200"
                         />
                         <div>
-                          <div className="font-bold text-slate-900">{s.name}</div>
+                          <div className="font-bold text-slate-900 dark:text-white">{s.name}</div>
                           <div className="text-[11px] text-slate-400">{s.room}</div>
                         </div>
                       </div>
@@ -589,10 +589,10 @@ export default function RoleAdminBendahara() {
 
       {/* TAB 3: PERSETUJUAN TOP-UP */}
       {activeAdminTab === 'approvals' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 Antrean Konfirmasi Transfer Uang Saku Santri
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -630,7 +630,7 @@ export default function RoleAdminBendahara() {
 
                     <div>
                       <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-slate-900 text-sm">{topup.santriName}</h4>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">{topup.santriName}</h4>
                         <span className="bg-slate-100 text-slate-700 text-[10px] font-mono px-2 py-0.5 rounded">
                           NIS: {topup.santriNis}
                         </span>
@@ -683,11 +683,11 @@ export default function RoleAdminBendahara() {
 
       {/* TAB: VERIFIKASI BIOMETRIK WALI SANTRI */}
       {activeAdminTab === 'biometric' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-slate-900">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                   Verifikasi Pendaftaran Sidik Jari Biometrik Wali Santri
                 </h3>
                 {pendingBiometricCount > 0 && (
@@ -816,13 +816,13 @@ export default function RoleAdminBendahara() {
 
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-slate-900 text-sm">{w.parentName}</h4>
+                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">{w.parentName}</h4>
                             <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
                               WA: {w.parentPhone || '-'}
                             </span>
                             <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                               isPending
-                                ? 'bg-amber-400 text-slate-900 animate-pulse'
+                                ? 'bg-amber-400 text-slate-900 dark:text-white animate-pulse'
                                 : isApproved
                                 ? 'bg-sky-600 text-white'
                                 : isRejected
@@ -932,9 +932,9 @@ export default function RoleAdminBendahara() {
 
       {/* TAB 4: PROFIL PESANTREN & REKENING RESMI */}
       {activeAdminTab === 'settings' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
               Pengaturan Profil Ma'had & Rekening Resmi
             </h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -1008,12 +1008,12 @@ export default function RoleAdminBendahara() {
 
           {/* Bank Accounts List */}
           <div className="pt-4 border-t border-slate-200 space-y-3">
-            <h4 className="font-bold text-slate-900 text-sm">Daftar Rekening Bank Resmi:</h4>
+            <h4 className="font-bold text-slate-900 dark:text-white text-sm">Daftar Rekening Bank Resmi:</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {pesantrenInfo.bankAccounts.map((acc, idx) => (
                 <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
                   <div className="font-bold text-sky-800 text-xs">{acc.bank}</div>
-                  <div className="text-base font-mono font-bold text-slate-900 mt-1">{acc.accountNo}</div>
+                  <div className="text-base font-mono font-bold text-slate-900 dark:text-white mt-1">{acc.accountNo}</div>
                   <div className="text-xs text-slate-500 mt-0.5">a/n {acc.accountHolder}</div>
                 </div>
               ))}
@@ -1024,10 +1024,10 @@ export default function RoleAdminBendahara() {
 
       {/* TAB 5: REKAP TRANSAKSI */}
       {activeAdminTab === 'reports' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-xl font-bold text-slate-900">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                 Rekap Transaksi Keuangan Keseluruhan
               </h3>
               <p className="text-xs text-slate-500">
@@ -1072,9 +1072,9 @@ export default function RoleAdminBendahara() {
                 {transactions.map(t => (
                   <tr key={t.id} className="hover:bg-slate-50">
                     <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{formatDateTime(t.timestamp)}</td>
-                    <td className="py-2.5 px-3 font-bold text-slate-900">{t.santriName} ({t.santriNis})</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{t.santriName} ({t.santriNis})</td>
                     <td className="py-2.5 px-3 text-slate-600">{t.categoryLabel || t.type}</td>
-                    <td className={`py-2.5 px-3 font-bold ${t.type === 'DEPOSIT' ? 'text-sky-700' : 'text-slate-900'}`}>
+                    <td className={`py-2.5 px-3 font-bold ${t.type === 'DEPOSIT' ? 'text-sky-700' : 'text-slate-900 dark:text-white'}`}>
                       {t.type === 'DEPOSIT' ? `+${formatRupiah(t.amount)}` : `-${formatRupiah(t.amount)}`}
                     </td>
                     <td className="py-2.5 px-3 text-slate-600">{formatRupiah(t.currentBalance)}</td>
@@ -1090,9 +1090,9 @@ export default function RoleAdminBendahara() {
 
       {/* TAB 6: FIREBASE CLOUD */}
       {activeAdminTab === 'firebase' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
               Integrasi Cloud Backend Firebase & Mode Uji Coba
             </h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -1203,7 +1203,7 @@ export default function RoleAdminBendahara() {
             className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-base text-slate-900">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
                 Ubah Kredensial: {editingRole.name}
               </h3>
               <button
@@ -1335,7 +1335,7 @@ export default function RoleAdminBendahara() {
             className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-base text-slate-900">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
                 Pendaftaran Santri Baru Maisya-Saku
               </h3>
               <button
@@ -1498,7 +1498,7 @@ export default function RoleAdminBendahara() {
             className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-base text-slate-900">
+              <h3 className="font-bold text-base text-slate-900 dark:text-white">
                 Edit Data Santri: {editingSantri.name}
               </h3>
               <button
@@ -1710,7 +1710,7 @@ export default function RoleAdminBendahara() {
                 </div>
               </div>
 
-              <div className="bg-white/95 p-2.5 rounded-xl text-slate-900 flex items-center justify-between mt-4">
+              <div className="bg-white/95 p-2.5 rounded-xl text-slate-900 dark:text-white flex items-center justify-between mt-4">
                 <div>
                   <div className="font-mono font-black text-xs tracking-widest">{selectedCardSantri.barcode}</div>
                   <div className="text-[9px] text-slate-500 font-sans">RFID: {selectedCardSantri.rfidTag}</div>

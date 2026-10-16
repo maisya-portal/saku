@@ -261,9 +261,9 @@ export default function RoleWaliSantri() {
               <button
                 type="button"
                 onClick={() => setActiveTab('topup')}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-5 py-3 rounded-2xl shadow-lg transition-transform active:scale-95"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-amber-400 hover:bg-amber-300 text-slate-900 dark:text-white font-bold px-5 py-3 rounded-2xl shadow-lg transition-transform active:scale-95"
               >
-                <ArrowDownLeft className="w-5 h-5 text-slate-900" />
+                <ArrowDownLeft className="w-5 h-5 text-slate-900 dark:text-white" />
                 <span>+ Isi Saldo / Transfer</span>
               </button>
 
@@ -332,14 +332,14 @@ export default function RoleWaliSantri() {
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Spending Limit Status Card */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center">
                   <ShieldAlert className="w-5 h-5 text-sky-700" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900">Kontrol Batas Belanja Oleh Wali Santri</h4>
+                  <h4 className="font-bold text-slate-900 dark:text-white">Kontrol Batas Belanja Oleh Wali Santri</h4>
                   <p className="text-xs text-slate-500">
                     Sistem otomatis menolak transaksi jika melebihi aturan yang Anda tetapkan
                   </p>
@@ -431,9 +431,9 @@ export default function RoleWaliSantri() {
           )}
 
           {/* Recent Spending Activities (Itemized) */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-bold text-slate-900 flex items-center gap-2">
+              <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Clock className="w-4 h-4 text-sky-600" />
                 <span>Aktivitas Penggunaan Uang Santri Terbaru</span>
               </h4>
@@ -473,7 +473,7 @@ export default function RoleWaliSantri() {
                     </div>
                     <div className="text-right">
                       <div className={`text-sm font-bold ${
-                        tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900'
+                        tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900 dark:text-white'
                       }`}>
                         {tx.type === 'DEPOSIT' ? `+${formatRupiah(tx.amount)}` : `-${formatRupiah(tx.amount)}`}
                       </div>
@@ -491,9 +491,9 @@ export default function RoleWaliSantri() {
 
       {/* TAB 2: TOP-UP & REKENING RESMI PESANTREN */}
       {activeTab === 'topup' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div>
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
               Isi Saldo Uang Saku Ananda: {currentChild.name}
             </h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -529,7 +529,7 @@ export default function RoleWaliSantri() {
                     <span>{copiedAccount === acc.accountNo ? 'Tersalin!' : 'Salin'}</span>
                   </button>
                 </div>
-                <div className="text-lg font-mono font-bold text-slate-900 tracking-wider">
+                <div className="text-lg font-mono font-bold text-slate-900 dark:text-white tracking-wider">
                   {acc.accountNo}
                 </div>
                 <div className="text-xs text-slate-600 mt-1">
@@ -571,7 +571,7 @@ export default function RoleWaliSantri() {
                 value={topupAmount}
                 onChange={(e) => setTopupAmount(e.target.value)}
                 placeholder="Atau masukkan nominal custom..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-sky-600 outline-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:bg-white focus:border-sky-600 outline-none"
               />
             </div>
           </div>
@@ -651,13 +651,13 @@ export default function RoleWaliSantri() {
 
       {/* TAB 3: SPENDING LIMIT CONTROLLER */}
       {activeTab === 'limits' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
           <div>
             <div className="inline-flex items-center gap-1.5 bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-xs font-bold mb-2">
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>Proteksi Keuangan Santri</span>
             </div>
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
               Pengaturan Pembatasan Jajan: {currentChild.name}
             </h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -757,7 +757,7 @@ export default function RoleWaliSantri() {
                     value={limitAmount}
                     onChange={(e) => setLimitAmount(e.target.value)}
                     placeholder="Masukkan batas nominal custom..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-sky-600 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -778,9 +778,9 @@ export default function RoleWaliSantri() {
 
       {/* TAB 4: FULL TRANSACTION HISTORY */}
       {activeTab === 'history' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-slate-900">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">
               Riwayat Transaksi: {currentChild.name}
             </h3>
             <span className="text-xs text-slate-500 bg-slate-100 px-3 py-1 rounded-full font-semibold">
@@ -818,7 +818,7 @@ export default function RoleWaliSantri() {
                 </div>
                 <div className="text-right sm:self-center pl-12 sm:pl-0">
                   <div className={`text-base font-black ${
-                    tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900'
+                    tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900 dark:text-white'
                   }`}>
                     {tx.type === 'DEPOSIT' ? `+${formatRupiah(tx.amount)}` : `-${formatRupiah(tx.amount)}`}
                   </div>

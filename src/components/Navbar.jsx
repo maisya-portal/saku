@@ -9,12 +9,14 @@ import {
   X,
   CreditCard,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Navbar() {
-  const { authSession, logout, toast, hideToast, pesantrenInfo } = useApp();
+  const { authSession, logout, toast, hideToast, pesantrenInfo, theme, toggleTheme } = useApp();
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showTopBanner, setShowTopBanner] = useState(true);
 
@@ -81,7 +83,7 @@ export default function Navbar() {
       )}
 
       {/* MAIN NAVBAR */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs">
+      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
           {/* Logo & Brand Identity (Scalev Blue Style) */}
           <div className="flex items-center gap-3">
@@ -93,46 +95,66 @@ export default function Navbar() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight leading-none">
+                <h1 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none transition-colors">
                   Maisya-Saku
                 </h1>
-                <span className="bg-sky-100 text-sky-700 text-[10px] font-black px-2 py-0.5 rounded-full tracking-wide border border-sky-200">
+                <span className="bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 text-[10px] font-black px-2 py-0.5 rounded-full tracking-wide border border-sky-200 dark:border-sky-800">
                   PORTAL CASHLESS
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium truncate max-w-xs sm:max-w-md mt-0.5">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate max-w-xs sm:max-w-md mt-0.5 transition-colors">
                 {pesantrenInfo.name} • Portal Keuangan Terenkripsi
               </p>
             </div>
           </div>
 
-          {/* Right Action: Authenticated Profile & Session Lock */}
-          <div className="flex items-center gap-2.5">
+          {/* Right Action: Theme Switcher, Authenticated Profile & Session Lock */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* PWA Install Button */}
             {pwaPrompt && (
               <button
                 type="button"
                 onClick={handleInstallPwa}
-                className="hidden sm:flex items-center gap-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-300 font-bold px-3 py-2 rounded-xl text-xs transition-all"
+                className="hidden sm:flex items-center gap-1.5 bg-sky-50 dark:bg-sky-950/80 hover:bg-sky-100 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-bold px-3 py-2 rounded-xl text-xs transition-all"
               >
                 <Download className="w-3.5 h-3.5" />
                 <span>Install PWA</span>
               </button>
             )}
 
+            {/* THEME TOGGLE: LIGHT / DARK MODE */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 border border-slate-200 dark:border-slate-700 transition-all shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+              title={theme === 'dark' ? 'Ganti ke Tema Terang' : 'Ganti ke Tema Gelap'}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold hidden md:inline text-slate-200">Terang</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-slate-700" />
+                  <span className="text-xs font-bold hidden md:inline text-slate-700">Gelap</span>
+                </>
+              )}
+            </button>
+
             {/* Active User Session Pill (Scalev Avatar Pill Style) */}
             {authSession && (
-              <div className="flex items-center gap-2.5 bg-slate-50 hover:bg-slate-100 p-1.5 pl-3 rounded-2xl border border-slate-200 transition-colors">
+              <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 p-1.5 pl-3 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
                 {/* Scalev-like MP Badge */}
                 <div className="w-7 h-7 rounded-xl bg-sky-500 text-white font-black text-[11px] flex items-center justify-center shadow-xs shrink-0">
                   {authSession.name ? authSession.name.slice(0, 2).toUpperCase() : 'MP'}
                 </div>
 
                 <div className="text-left hidden sm:block">
-                  <div className="text-xs font-bold text-slate-900 truncate max-w-[140px] leading-tight">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[130px] leading-tight transition-colors">
                     {authSession.name}
                   </div>
-                  <div className="text-[10px] text-sky-600 font-semibold truncate max-w-[140px]">
+                  <div className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold truncate max-w-[130px] transition-colors">
                     {authSession.title}
                   </div>
                 </div>
@@ -140,7 +162,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex items-center gap-1 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-600 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold transition-all shadow-xs ml-1"
+                  className="flex items-center gap-1 bg-white dark:bg-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold transition-all shadow-xs ml-1"
                   title="Kunci Sesi / Keluar"
                 >
                   <Lock className="w-3.5 h-3.5" />

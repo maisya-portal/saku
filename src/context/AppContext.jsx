@@ -127,6 +127,35 @@ export function AppProvider({ children }) {
     return saved ? JSON.parse(saved) : INITIAL_SANTRI;
   });
 
+  // Theme state: 'light' | 'dark'
+  const [theme, setThemeState] = useState(() => {
+    const saved = localStorage.getItem('maisya_theme');
+    if (saved) return saved;
+    return 'light'; // default to crisp Scalev Light theme
+  });
+
+  const setTheme = useCallback((newTheme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('maisya_theme', newTheme);
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }, [theme, setTheme]);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
   // Active Authenticated Session (null when locked/logged out)
   const [authSession, setAuthSession] = useState(() => {
     const saved = sessionStorage.getItem('maisya_auth_session');
@@ -1172,6 +1201,11 @@ export function AppProvider({ children }) {
     approveFingerprint,
     rejectFingerprint,
     resetFingerprint,
+
+    // Theme (Light / Dark)
+    theme,
+    setTheme,
+    toggleTheme,
 
     // Toast & Alerts
     toast,

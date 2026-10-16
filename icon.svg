@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#065f46" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="100%" stop-color="#eab308" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#grad)" />
+  <!-- Dome / arch backdrop -->
+  <path d="M256 80 C190 140 160 210 160 270 L352 270 C352 210 322 140 256 80 Z" fill="#ffffff" opacity="0.1" />
+  <!-- Wallet / Card base -->
+  <rect x="116" y="190" width="280" height="190" rx="24" fill="#ffffff" />
+  <rect x="116" y="230" width="280" height="40" fill="#f1f5f9" />
+  <!-- Card chip -->
+  <rect x="156" y="295" width="45" height="35" rx="6" fill="url(#gold)" />
+  <!-- NFC / Contactless Waves -->
+  <path d="M226 298 A 20 20 0 0 1 226 328" stroke="#059669" stroke-width="4" stroke-linecap="round" fill="none" />
+  <path d="M236 293 A 28 28 0 0 1 236 333" stroke="#059669" stroke-width="4" stroke-linecap="round" fill="none" />
+  <!-- Gold Coins / Islamic Star -->
+  <circle cx="340" cy="312" r="24" fill="url(#gold)" />
+  <text x="340" y="320" font-family="Arial, sans-serif" font-size="22" font-weight="bold" fill="#78350f" text-anchor="middle">S</text>
+  <!-- Text Brand -->
+  <text x="256" y="440" font-family="'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#ffffff" letter-spacing="2" text-anchor="middle">MAISYA-SAKU</text>
+  <text x="256" y="468" font-family="'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="500" fill="#a7f3d0" letter-spacing="1" text-anchor="middle">MA'HAD IMAM SYAFI'I BREBES</text>
+</svg>

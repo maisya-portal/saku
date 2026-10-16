@@ -30,7 +30,11 @@ export default function WhatsAppDispatchModal({
   const [phoneNumber, setPhoneNumber] = useState(initialPhone || '');
   const [urlMode, setUrlMode] = useState('online'); // 'online' | 'localhost' | 'custom'
   const [customDomain, setCustomDomain] = useState(() => {
-    return localStorage.getItem('maisya_public_domain') || 'https://ponpes-imamsyafii.github.io/maisya-saku/';
+    const saved = localStorage.getItem('maisya_public_domain');
+    if (!saved || saved.includes('ponpes-imamsyafii.github.io')) {
+      return 'https://maisya-portal.github.io/saku/';
+    }
+    return saved;
   });
   const [copied, setCopied] = useState(false);
 

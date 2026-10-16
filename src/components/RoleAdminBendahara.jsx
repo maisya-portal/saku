@@ -952,7 +952,7 @@ export default function RoleAdminBendahara() {
                 tagline: form.get('tagline'),
                 address: form.get('address'),
                 whatsappAdmin: form.get('whatsappAdmin'),
-                appBaseUrl: form.get('appBaseUrl') || 'https://ponpes-imamsyafii.github.io/maisya-saku/'
+                appBaseUrl: form.get('appBaseUrl') || 'https://maisya-portal.github.io/saku/'
               });
             }}
             className="space-y-4 text-xs"
@@ -1003,8 +1003,8 @@ export default function RoleAdminBendahara() {
               </label>
               <input
                 name="appBaseUrl"
-                defaultValue={pesantrenInfo.appBaseUrl || 'https://ponpes-imamsyafii.github.io/maisya-saku/'}
-                placeholder="https://ponpes-imamsyafii.github.io/maisya-saku/"
+                defaultValue={pesantrenInfo.appBaseUrl || 'https://maisya-portal.github.io/saku/'}
+                placeholder="https://maisya-portal.github.io/saku/"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-sky-600 outline-none"
               />
               <p className="text-[11px] text-slate-500 mt-1">

@@ -186,10 +186,14 @@ export function AppProvider({ children }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
+        const savedUrl = parsed.appBaseUrl;
+        const finalUrl = (!savedUrl || savedUrl.includes('ponpes-imamsyafii.github.io')) 
+          ? 'https://maisya-portal.github.io/saku/' 
+          : savedUrl;
         return {
           ...INITIAL_PESANTREN_INFO,
           ...parsed,
-          appBaseUrl: parsed.appBaseUrl || INITIAL_PESANTREN_INFO.appBaseUrl || 'https://ponpes-imamsyafii.github.io/maisya-saku/'
+          appBaseUrl: finalUrl
         };
       } catch (e) { /* ignore */ }
     }
@@ -645,7 +649,7 @@ export function AppProvider({ children }) {
       window.location.hostname === ''
     );
 
-    const publicDomain = pesantrenInfo.appBaseUrl || 'https://ponpes-imamsyafii.github.io/maisya-saku/';
+    const publicDomain = pesantrenInfo.appBaseUrl || 'https://maisya-portal.github.io/saku/';
     const effectiveBase = isLocalhost ? publicDomain : `${window.location.origin}${window.location.pathname}`;
     const cleanBase = effectiveBase.endsWith('/') ? effectiveBase : `${effectiveBase}/`;
     const fullLink = `${cleanBase}#token=${token}`;

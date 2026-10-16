@@ -168,8 +168,8 @@ export default function RolePetugasTelpon() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-indigo-300">Stopwatch Panggilan Langsung</span>
               {timerRunning && (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold bg-emerald-950 px-2.5 py-1 rounded-full border border-emerald-500/30">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="flex items-center gap-1.5 text-xs text-sky-400 font-bold bg-sky-950 px-2.5 py-1 rounded-full border border-sky-500/30">
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
                   <span>Sedang Berbicara</span>
                 </span>
               )}
@@ -184,7 +184,7 @@ export default function RolePetugasTelpon() {
                 <button
                   type="button"
                   onClick={startTimer}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-transform active:scale-95"
+                  className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg transition-transform active:scale-95"
                 >
                   <Play className="w-4 h-4 fill-white" />
                   <span>Mulai Panggilan</span>

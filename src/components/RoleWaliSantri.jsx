@@ -135,7 +135,7 @@ export default function RoleWaliSantri() {
   const renderTxIcon = (type) => {
     switch (type) {
       case 'DEPOSIT':
-        return <ArrowDownLeft className="w-5 h-5 text-emerald-600" />;
+        return <ArrowDownLeft className="w-5 h-5 text-sky-600" />;
       case 'PURCHASE_KANTIN':
         return <Utensils className="w-5 h-5 text-amber-600" />;
       case 'LAUNDRY':
@@ -162,31 +162,31 @@ export default function RoleWaliSantri() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Top Banner / Welcome with Multi-Child Switcher */}
-      <div className="bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-800 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-br from-sky-500 via-sky-600 to-blue-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
         {/* Islamic arabesque decorative accent */}
         <div className="absolute -right-12 -top-12 w-48 h-48 rounded-full bg-white/5 pointer-events-none blur-xl" />
-        <div className="absolute right-8 bottom-4 text-emerald-200/10 text-9xl font-serif font-black select-none pointer-events-none">
+        <div className="absolute right-8 bottom-4 text-sky-200/10 text-9xl font-serif font-black select-none pointer-events-none">
           ISB
         </div>
 
         <div className="relative z-10">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <div className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-emerald-100 mb-2">
+              <div className="inline-flex items-center gap-1.5 bg-white/15 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-sky-100 mb-2">
                 <Lock className="w-3.5 h-3.5" />
                 <span>Portal Keuangan Khusus Wali Santri</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
                 Ahlan wa Sahlan, {currentChild.parentName}
               </h2>
-              <p className="text-emerald-100/90 text-sm mt-1">
+              <p className="text-sky-100/90 text-sm mt-1">
                 {pesantrenInfo.name} • Akses Aman Terverifikasi
               </p>
             </div>
 
             {/* Live Data Badge */}
-            <div className="flex items-center gap-2 self-start sm:self-center bg-emerald-900/60 backdrop-blur-md border border-emerald-400/30 px-3 py-1.5 rounded-2xl text-xs font-medium text-emerald-200">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div className="flex items-center gap-2 self-start sm:self-center bg-sky-900/60 backdrop-blur-md border border-sky-400/30 px-3 py-1.5 rounded-2xl text-xs font-medium text-sky-200">
+              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse" />
               <span>Sinkronisasi Realtime</span>
             </div>
           </div>
@@ -194,8 +194,8 @@ export default function RoleWaliSantri() {
           {/* Sibling Switcher: If parent has more than 1 child */}
           {activeChildren.length > 1 ? (
             <div className="bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20 mb-6">
-              <div className="text-xs font-semibold text-emerald-100 mb-2 px-2 flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-emerald-200" />
+              <div className="text-xs font-semibold text-sky-100 mb-2 px-2 flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-sky-200" />
                 <span>Pilih Ananda ({activeChildren.length} Santri Terdaftar Dalam 1 Akun Anda):</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -212,14 +212,14 @@ export default function RoleWaliSantri() {
                     }}
                     className={`flex items-center gap-3 p-3 rounded-xl transition-all text-left ${
                       selectedChildId === child.id
-                        ? 'bg-white text-emerald-900 shadow-md font-bold'
+                        ? 'bg-white text-sky-900 shadow-md font-bold'
                         : 'bg-white/10 hover:bg-white/20 text-white font-medium'
                     }`}
                   >
                     <img
                       src={child.avatar}
                       alt={child.name}
-                      className="w-10 h-10 rounded-xl object-cover border border-emerald-300/40"
+                      className="w-10 h-10 rounded-xl object-cover border border-sky-300/40"
                     />
                     <div className="overflow-hidden">
                       <div className="truncate text-sm">{child.name}</div>
@@ -230,7 +230,7 @@ export default function RoleWaliSantri() {
               </div>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-xl text-xs text-emerald-100 mb-6">
+            <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-xl text-xs text-sky-100 mb-6">
               <span className="font-semibold text-white">{currentChild.name}</span>
               <span>•</span>
               <span>{currentChild.class}</span>
@@ -242,14 +242,14 @@ export default function RoleWaliSantri() {
           {/* Main Balance Display */}
           <div className="bg-white/15 backdrop-blur-md rounded-2xl p-6 border border-white/20 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <div className="text-xs font-semibold tracking-wider text-emerald-200 uppercase">
+              <div className="text-xs font-semibold tracking-wider text-sky-200 uppercase">
                 Saldo Uang Saku Digital Ananda
               </div>
               <div className="text-3xl sm:text-5xl font-black text-white mt-1 tracking-tight">
                 {formatRupiah(currentChild.balance)}
               </div>
-              <div className="flex items-center gap-3 mt-3 text-xs text-emerald-100">
-                <span className="bg-emerald-900/60 px-2.5 py-1 rounded-lg border border-emerald-400/30">
+              <div className="flex items-center gap-3 mt-3 text-xs text-sky-100">
+                <span className="bg-sky-900/60 px-2.5 py-1 rounded-lg border border-sky-400/30">
                   {currentChild.room}
                 </span>
                 <span>Halaqah: {currentChild.halaqah}</span>
@@ -287,7 +287,7 @@ export default function RoleWaliSantri() {
           onClick={() => setActiveTab('overview')}
           className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeTab === 'overview'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -298,7 +298,7 @@ export default function RoleWaliSantri() {
           onClick={() => setActiveTab('topup')}
           className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeTab === 'topup'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -309,7 +309,7 @@ export default function RoleWaliSantri() {
           onClick={() => setActiveTab('limits')}
           className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeTab === 'limits'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -320,7 +320,7 @@ export default function RoleWaliSantri() {
           onClick={() => setActiveTab('history')}
           className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeTab === 'history'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -335,8 +335,8 @@ export default function RoleWaliSantri() {
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                  <ShieldAlert className="w-5 h-5 text-emerald-700" />
+                <div className="w-10 h-10 rounded-2xl bg-sky-100 text-sky-800 flex items-center justify-center">
+                  <ShieldAlert className="w-5 h-5 text-sky-700" />
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-900">Kontrol Batas Belanja Oleh Wali Santri</h4>
@@ -348,7 +348,7 @@ export default function RoleWaliSantri() {
               <button
                 type="button"
                 onClick={() => setActiveTab('limits')}
-                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 self-start sm:self-center"
+                className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-200 self-start sm:self-center"
               >
                 Ubah Pengaturan ⚙️
               </button>
@@ -372,7 +372,7 @@ export default function RoleWaliSantri() {
 
                 <div>
                   <div className="text-xs text-slate-500">Sisa Jatah Belanja Hari Ini</div>
-                  <div className="text-sm font-bold text-emerald-700 mt-0.5">
+                  <div className="text-sm font-bold text-sky-700 mt-0.5">
                     {formatRupiah(Math.max(0, currentChild.spendingLimit.amount - (currentChild.spendingUsed?.daily || 0)))}
                   </div>
                 </div>
@@ -417,14 +417,14 @@ export default function RoleWaliSantri() {
 
           {/* Approved Top-Up Celebrations */}
           {childTopups.some(t => t.status === 'APPROVED') && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-3xl p-4 flex items-center justify-between">
+            <div className="bg-sky-50 border border-sky-200 rounded-3xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
-                <span className="text-xs font-semibold text-emerald-900">
+                <CheckCircle className="w-5 h-5 text-sky-600" />
+                <span className="text-xs font-semibold text-sky-900">
                   Transfer terbaru Anda telah diverifikasi & masuk ke saldo santri!
                 </span>
               </div>
-              <span className="text-xs text-emerald-700 font-bold bg-white px-2 py-0.5 rounded-lg border border-emerald-200">
+              <span className="text-xs text-sky-700 font-bold bg-white px-2 py-0.5 rounded-lg border border-sky-200">
                 Saldo Updated
               </span>
             </div>
@@ -434,13 +434,13 @@ export default function RoleWaliSantri() {
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" />
+                <Clock className="w-4 h-4 text-sky-600" />
                 <span>Aktivitas Penggunaan Uang Santri Terbaru</span>
               </h4>
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-sky-700 hover:underline flex items-center gap-1"
               >
                 <span>Lihat Semua</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -473,7 +473,7 @@ export default function RoleWaliSantri() {
                     </div>
                     <div className="text-right">
                       <div className={`text-sm font-bold ${
-                        tx.type === 'DEPOSIT' ? 'text-emerald-600' : 'text-slate-900'
+                        tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900'
                       }`}>
                         {tx.type === 'DEPOSIT' ? `+${formatRupiah(tx.amount)}` : `-${formatRupiah(tx.amount)}`}
                       </div>
@@ -508,13 +508,13 @@ export default function RoleWaliSantri() {
                 key={idx}
                 className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
                   selectedBank === acc.bank
-                    ? 'border-emerald-600 bg-emerald-50/50'
+                    ? 'border-sky-600 bg-sky-50/50'
                     : 'border-slate-200 hover:border-slate-300 bg-slate-50'
                 }`}
                 onClick={() => setSelectedBank(acc.bank)}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-bold text-sky-800 bg-sky-100 px-2.5 py-0.5 rounded-full">
                     {acc.bank}
                   </span>
                   <button
@@ -523,7 +523,7 @@ export default function RoleWaliSantri() {
                       e.stopPropagation();
                       handleCopy(acc.accountNo);
                     }}
-                    className="text-xs text-slate-500 hover:text-emerald-700 flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200"
+                    className="text-xs text-slate-500 hover:text-sky-700 flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200"
                   >
                     <Copy className="w-3.5 h-3.5" />
                     <span>{copiedAccount === acc.accountNo ? 'Tersalin!' : 'Salin'}</span>
@@ -552,7 +552,7 @@ export default function RoleWaliSantri() {
                   onClick={() => setTopupAmount(String(nominal))}
                   className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all ${
                     topupAmount === String(nominal)
-                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                      ? 'bg-sky-600 text-white border-sky-700 shadow-sm'
                       : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                   }`}
                 >
@@ -571,7 +571,7 @@ export default function RoleWaliSantri() {
                 value={topupAmount}
                 onChange={(e) => setTopupAmount(e.target.value)}
                 placeholder="Atau masukkan nominal custom..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-emerald-600 outline-none"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-sky-600 outline-none"
               />
             </div>
           </div>
@@ -600,7 +600,7 @@ export default function RoleWaliSantri() {
               ) : (
                 <label className="cursor-pointer block py-4">
                   <ArrowUpRight className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                  <span className="text-xs font-bold text-emerald-700 block">
+                  <span className="text-xs font-bold text-sky-700 block">
                     Pilih File Foto Bukti Transfer
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-1">
@@ -627,7 +627,7 @@ export default function RoleWaliSantri() {
               value={topupNote}
               onChange={(e) => setTopupNote(e.target.value)}
               placeholder="Contoh: Uang saku pekan ke-3 & persiapan ujian"
-              className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-emerald-600 outline-none"
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-sky-600 outline-none"
             />
           </div>
 
@@ -637,7 +637,7 @@ export default function RoleWaliSantri() {
               type="button"
               onClick={handleSubmitTopup}
               disabled={submittingTopup}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-transform active:scale-98 flex items-center justify-center gap-2 text-sm"
+              className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-transform active:scale-98 flex items-center justify-center gap-2 text-sm"
             >
               <Send className="w-4 h-4" />
               <span>Kirim Konfirmasi Top-Up & Buka WhatsApp Bendahara</span>
@@ -653,7 +653,7 @@ export default function RoleWaliSantri() {
       {activeTab === 'limits' && (
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-6">
           <div>
-            <div className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold mb-2">
+            <div className="inline-flex items-center gap-1.5 bg-sky-100 text-sky-800 px-3 py-1 rounded-full text-xs font-bold mb-2">
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>Proteksi Keuangan Santri</span>
             </div>
@@ -682,7 +682,7 @@ export default function RoleWaliSantri() {
                 onChange={(e) => setLimitActive(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
             </label>
           </div>
 
@@ -704,12 +704,12 @@ export default function RoleWaliSantri() {
                       onClick={() => setLimitType(period.id)}
                       className={`p-3 rounded-2xl border text-left transition-all ${
                         limitType === period.id
-                          ? 'border-emerald-600 bg-emerald-50/70 shadow-sm'
+                          ? 'border-sky-600 bg-sky-50/70 shadow-sm'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
                       }`}
                     >
                       <div className={`text-xs font-bold ${
-                        limitType === period.id ? 'text-emerald-900' : 'text-slate-800'
+                        limitType === period.id ? 'text-sky-900' : 'text-slate-800'
                       }`}>
                         {period.label}
                       </div>
@@ -738,7 +738,7 @@ export default function RoleWaliSantri() {
                       onClick={() => setLimitAmount(nom)}
                       className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
                         Number(limitAmount) === nom
-                          ? 'bg-emerald-600 text-white border-emerald-700'
+                          ? 'bg-sky-600 text-white border-sky-700'
                           : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
@@ -757,7 +757,7 @@ export default function RoleWaliSantri() {
                     value={limitAmount}
                     onChange={(e) => setLimitAmount(e.target.value)}
                     placeholder="Masukkan batas nominal custom..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-bold text-slate-900 focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -768,7 +768,7 @@ export default function RoleWaliSantri() {
             <button
               type="button"
               onClick={handleSaveLimit}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-transform active:scale-98 text-sm"
+              className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3.5 rounded-2xl shadow-lg transition-transform active:scale-98 text-sm"
             >
               Simpan Pengaturan Batasan
             </button>
@@ -818,7 +818,7 @@ export default function RoleWaliSantri() {
                 </div>
                 <div className="text-right sm:self-center pl-12 sm:pl-0">
                   <div className={`text-base font-black ${
-                    tx.type === 'DEPOSIT' ? 'text-emerald-600' : 'text-slate-900'
+                    tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900'
                   }`}>
                     {tx.type === 'DEPOSIT' ? `+${formatRupiah(tx.amount)}` : `-${formatRupiah(tx.amount)}`}
                   </div>

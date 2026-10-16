@@ -75,7 +75,6 @@ export default function AuthGate() {
 
       if (found) {
         window.location.hash = `token=${clean}`;
-        // If Wali Santri and approved, default to biometric touch as requested
         if (found.type === 'wali') {
           setAuthMode('biometric');
         } else {
@@ -184,21 +183,19 @@ export default function AuthGate() {
   };
 
   // IF NO TOKEN OR TOKEN INVALID: RENDER WALI LINK GENERATOR DIRECTLY!
-  // (Replaces the manual token prompt completely as requested by user)
   if (!activeToken || !targetAccount) {
     return <WaliLinkGenerator />;
   }
 
-  // Determine Fingerprint Enrollment State for Wali Santri
   const isWali = targetAccount.type === 'wali';
   const fpStatus = isWali ? (targetAccount.fingerprintStatus || 'NOT_REGISTERED') : 'APPROVED';
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-4 sm:p-6 selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col justify-between p-4 sm:p-6 selection:bg-sky-500 selection:text-white">
       {/* Top Header */}
       <div className="max-w-md w-full mx-auto text-center pt-3">
-        <div className="inline-flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-bold mb-3 shadow-sm">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+        <div className="inline-flex items-center gap-2 bg-sky-950/80 border border-sky-500/40 text-sky-300 px-4 py-1.5 rounded-full text-xs font-bold mb-3 shadow-sm">
+          <ShieldCheck className="w-4 h-4 text-sky-400" />
           <span>Gerbang Akses Terenkripsi Maisya-Saku</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -218,13 +215,13 @@ export default function AuthGate() {
               <img
                 src={targetAccount.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"}
                 alt={targetAccount.name}
-                className="w-12 h-12 rounded-2xl object-cover border-2 border-emerald-500/50 shadow-md"
+                className="w-12 h-12 rounded-2xl object-cover border-2 border-sky-500/50 shadow-md"
               />
               <div className="overflow-hidden">
                 <div className="text-sm font-black text-white leading-tight truncate">
                   {targetAccount.name}
                 </div>
-                <div className="text-xs text-emerald-400 font-semibold mt-0.5 truncate">
+                <div className="text-xs text-sky-400 font-semibold mt-0.5 truncate">
                   {targetAccount.title}
                 </div>
                 <div className="text-[10px] text-slate-400 font-mono mt-0.5">
@@ -249,9 +246,9 @@ export default function AuthGate() {
           {/* WALI SANTRI STATE 1: NOT REGISTERED (MUST ENROLL FINGERPRINT FIRST) */}
           {isWali && fpStatus === 'NOT_REGISTERED' && (
             <div className="space-y-4">
-              <div className="p-3.5 bg-amber-950/50 border border-amber-500/40 rounded-2xl space-y-1.5 text-center">
-                <div className="inline-flex items-center gap-1.5 text-amber-300 font-bold text-xs">
-                  <Fingerprint className="w-4 h-4 text-amber-400" />
+              <div className="p-3.5 bg-sky-950/50 border border-sky-500/40 rounded-2xl space-y-1.5 text-center">
+                <div className="inline-flex items-center gap-1.5 text-sky-300 font-bold text-xs">
+                  <Fingerprint className="w-4 h-4 text-sky-400" />
                   <span>Tahap 1: Pendaftaran Sidik Jari Biometrik</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
@@ -310,7 +307,7 @@ export default function AuthGate() {
                 <button
                   type="button"
                   onClick={handleContactAdminWA}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-transform active:scale-98"
+                  className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-transform active:scale-98"
                 >
                   <MessageSquare className="w-4 h-4" />
                   <span>Hubungi Bendahara via WhatsApp</span>
@@ -320,9 +317,9 @@ export default function AuthGate() {
                 <button
                   type="button"
                   onClick={() => approveFingerprint(targetAccount.token)}
-                  className="w-full bg-slate-900 hover:bg-slate-750 text-amber-400 border border-amber-500/30 font-semibold py-2.5 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full bg-slate-900 hover:bg-slate-750 text-sky-400 border border-sky-500/30 font-semibold py-2.5 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-colors"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <Sparkles className="w-3.5 h-3.5 text-sky-400" />
                   <span>Simulasi Uji Coba: Langsung Setujui Sekarang</span>
                 </button>
               </div>
@@ -370,7 +367,7 @@ export default function AuthGate() {
                   onClick={() => setAuthMode('biometric')}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     authMode === 'biometric'
-                      ? 'bg-emerald-600 text-white shadow-md'
+                      ? 'bg-sky-500 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -383,7 +380,7 @@ export default function AuthGate() {
                   onClick={() => setAuthMode('pin')}
                   className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                     authMode === 'pin'
-                      ? 'bg-emerald-600 text-white shadow-md'
+                      ? 'bg-sky-500 text-white shadow-md'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -442,7 +439,7 @@ export default function AuthGate() {
                       autoFocus
                     />
 
-                    {/* Visual PIN Dots Indicator */}
+                    {/* Visual PIN Dots Indicator (Scalev Blue) */}
                     <div 
                       onClick={() => pinInputRef.current && pinInputRef.current.focus()}
                       className="flex justify-center items-center gap-3 my-4 cursor-pointer"
@@ -452,7 +449,7 @@ export default function AuthGate() {
                           key={idx}
                           className={`w-4 h-4 rounded-full transition-all duration-150 ${
                             idx < inputPin.length
-                              ? 'bg-emerald-400 scale-125 shadow-sm shadow-emerald-400/80'
+                              ? 'bg-sky-400 scale-125 shadow-sm shadow-sky-400/80'
                               : 'bg-slate-700 border border-slate-600'
                           }`}
                         />

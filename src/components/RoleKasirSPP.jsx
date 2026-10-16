@@ -98,7 +98,7 @@ export default function RoleKasirSPP() {
                 Daftar Tagihan: {selectedSantri.name}
               </h3>
               <p className="text-xs text-slate-500">
-                NIS: {selectedSantri.nis} • {selectedSantri.class} • Saldo Saat Ini: <strong className="text-emerald-700">{formatRupiah(selectedSantri.balance)}</strong>
+                NIS: {selectedSantri.nis} • {selectedSantri.class} • Saldo Saat Ini: <strong className="text-sky-700">{formatRupiah(selectedSantri.balance)}</strong>
               </p>
             </div>
           </div>
@@ -115,7 +115,7 @@ export default function RoleKasirSPP() {
                     <div className="flex items-center gap-2">
                       <h4 className="font-bold text-slate-900 text-sm">{bill.title}</h4>
                       {bill.status === 'PAID' ? (
-                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" />
                           <span>LUNAS</span>
                         </span>
@@ -206,15 +206,15 @@ export default function RoleKasirSPP() {
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-200 space-y-4">
             <div className="text-center border-b-2 border-slate-200 pb-3">
               <div className="text-xs tracking-wider text-slate-500 font-bold uppercase">KUITANSI RESMI PEMBAYARAN</div>
-              <div className="font-black text-emerald-800 text-lg mt-0.5">MA'HAD IMAM SYAFI'I BREBES</div>
+              <div className="font-black text-sky-800 text-lg mt-0.5">MA'HAD IMAM SYAFI'I BREBES</div>
               <div className="text-[11px] text-slate-400 mt-1">
                 Tanggal: {formatDateTime(completedPayment.date)}
               </div>
             </div>
 
-            <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl flex items-center justify-between">
-              <span className="text-xs font-bold text-emerald-900">Status Pembayaran:</span>
-              <span className="bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-full">
+            <div className="bg-sky-50 border border-sky-200 p-3 rounded-2xl flex items-center justify-between">
+              <span className="text-xs font-bold text-sky-900">Status Pembayaran:</span>
+              <span className="bg-sky-600 text-white font-black text-xs px-3 py-1 rounded-full">
                 LUNAS (SAH)
               </span>
             </div>
@@ -238,7 +238,7 @@ export default function RoleKasirSPP() {
               </div>
               <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-sm">
                 <span>Jumlah Yang Dibayar:</span>
-                <span className="text-emerald-700">{formatRupiah(completedPayment.bill.amount)}</span>
+                <span className="text-sky-700">{formatRupiah(completedPayment.bill.amount)}</span>
               </div>
               <div className="flex justify-between text-slate-500 text-[11px]">
                 <span>Metode Pembayaran:</span>
@@ -258,7 +258,7 @@ export default function RoleKasirSPP() {
               <button
                 type="button"
                 onClick={() => setCompletedPayment(null)}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs"
+                className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl text-xs"
               >
                 Tutup
               </button>

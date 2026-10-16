@@ -187,10 +187,10 @@ export default function RoleAdminBendahara() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Top Banner */}
-      <div className="bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      <div className="bg-gradient-to-br from-slate-900 via-sky-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <div className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 px-3.5 py-1 rounded-full text-xs font-bold border border-emerald-500/30 mb-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <div className="inline-flex items-center gap-1.5 bg-sky-500/20 text-sky-300 px-3.5 py-1 rounded-full text-xs font-bold border border-sky-500/30 mb-2">
+            <ShieldCheck className="w-4 h-4 text-sky-400" />
             <span>Super Administrator & Bendahara Pusat</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -203,9 +203,9 @@ export default function RoleAdminBendahara() {
 
         {/* Live / Demo Mode Badge */}
         <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/15 text-right self-start sm:self-center">
-          <div className="text-[11px] text-emerald-300 font-semibold">Status Sistem:</div>
+          <div className="text-[11px] text-sky-300 font-semibold">Status Sistem:</div>
           <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${demoState ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'}`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${demoState ? 'bg-amber-400' : 'bg-sky-400 animate-pulse'}`} />
             <span>{demoState ? 'Lokal Sync Realtime' : 'Cloud Firestore Aktif'}</span>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function RoleAdminBendahara() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div className="text-[11px] font-semibold text-slate-500">Total Saldo Santri</div>
-          <div className="text-base font-black text-emerald-700 mt-1">{formatRupiah(totalSantriBalance)}</div>
+          <div className="text-base font-black text-sky-700 mt-1">{formatRupiah(totalSantriBalance)}</div>
           <div className="text-[10px] text-slate-400 mt-0.5">{santriList.length} Santri Aktif</div>
         </div>
 
@@ -257,7 +257,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('roles')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeAdminTab === 'roles'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -269,7 +269,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('santri')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeAdminTab === 'santri'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -281,7 +281,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('approvals')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap ${
             activeAdminTab === 'approvals'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -298,7 +298,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('biometric')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
             activeAdminTab === 'biometric'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -316,7 +316,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('settings')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeAdminTab === 'settings'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -328,7 +328,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('reports')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeAdminTab === 'reports'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -340,7 +340,7 @@ export default function RoleAdminBendahara() {
           onClick={() => setActiveAdminTab('firebase')}
           className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
             activeAdminTab === 'firebase'
-              ? 'bg-emerald-700 text-white shadow-sm'
+              ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
@@ -368,7 +368,7 @@ export default function RoleAdminBendahara() {
               const magicUrl = `${baseUrl}#token=${acc.token}`;
 
               return (
-                <div key={acc.id} className="p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/60 hover:bg-white hover:border-emerald-500/50 hover:shadow-md transition-all space-y-4">
+                <div key={acc.id} className="p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/60 hover:bg-white hover:border-sky-500/50 hover:shadow-md transition-all space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <img
@@ -379,7 +379,7 @@ export default function RoleAdminBendahara() {
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-slate-900 text-sm">{acc.name}</h4>
-                          <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                          <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
                             {acc.role}
                           </span>
                         </div>
@@ -391,7 +391,7 @@ export default function RoleAdminBendahara() {
                     <button
                       type="button"
                       onClick={() => setEditingRole(acc)}
-                      className="p-2 rounded-xl text-slate-500 hover:text-emerald-700 hover:bg-slate-100"
+                      className="p-2 rounded-xl text-slate-500 hover:text-sky-700 hover:bg-slate-100"
                       title="Ubah Kredensial / PIN"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -409,7 +409,7 @@ export default function RoleAdminBendahara() {
 
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Token Magic Link:</span>
-                      <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      <span className="font-mono font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded">
                         #{acc.token}
                       </span>
                     </div>
@@ -435,7 +435,7 @@ export default function RoleAdminBendahara() {
                     <button
                       type="button"
                       onClick={() => handleSendRoleMagicLink(acc)}
-                      className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                      className="flex-1 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Kirim ke WhatsApp</span>
@@ -464,7 +464,7 @@ export default function RoleAdminBendahara() {
             <button
               type="button"
               onClick={() => setIsAddSantriOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 self-start sm:self-center shadow-md active:scale-95 transition-all"
+              className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 self-start sm:self-center shadow-md active:scale-95 transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Daftarkan Santri Baru</span>
@@ -479,7 +479,7 @@ export default function RoleAdminBendahara() {
               value={santriSearch}
               onChange={(e) => setSantriSearch(e.target.value)}
               placeholder="Cari santri berdasarkan Nama, NIS, Kelas, atau Nama Wali..."
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:border-emerald-600 outline-none"
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:border-sky-600 outline-none"
             />
           </div>
 
@@ -525,19 +525,19 @@ export default function RoleAdminBendahara() {
                         <button
                           type="button"
                           onClick={() => handleSendWaliMagicLink(s)}
-                          className="text-emerald-700 hover:underline font-bold"
+                          className="text-sky-700 hover:underline font-bold"
                           title="Kirim Magic Link ke Wali via WhatsApp"
                         >
                           (Kirim WA)
                         </button>
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-black text-emerald-700 text-sm">
+                    <td className="py-3 px-4 font-black text-sky-700 text-sm">
                       {formatRupiah(s.balance)}
                     </td>
                     <td className="py-3 px-4">
                       {s.spendingLimit?.active ? (
-                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        <span className="bg-sky-50 text-sky-800 border border-sky-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
                           {formatRupiah(s.spendingLimit.amount)} / {s.spendingLimit.type}
                         </span>
                       ) : (
@@ -559,7 +559,7 @@ export default function RoleAdminBendahara() {
                         <button
                           type="button"
                           onClick={() => setEditingSantri(s)}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-700 hover:bg-slate-100"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-sky-700 hover:bg-slate-100"
                           title="Edit Santri"
                         >
                           <Edit3 className="w-4 h-4" />
@@ -650,7 +650,7 @@ export default function RoleAdminBendahara() {
                   <div className="flex items-center gap-3 self-end md:self-center">
                     <div className="text-right">
                       <div className="text-xs text-slate-400 font-semibold">Nominal Setoran</div>
-                      <div className="text-lg font-black text-emerald-700">
+                      <div className="text-lg font-black text-sky-700">
                         {formatRupiah(topup.amount)}
                       </div>
                     </div>
@@ -667,7 +667,7 @@ export default function RoleAdminBendahara() {
                       <button
                         type="button"
                         onClick={() => handleApprove(topup.id)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
+                        className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
                       >
                         <Check className="w-4 h-4" />
                         <span>Setujui Setoran</span>
@@ -703,7 +703,7 @@ export default function RoleAdminBendahara() {
 
             {/* Quick KPI count */}
             <div className="flex items-center gap-2">
-              <span className="bg-emerald-50 text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-emerald-200">
+              <span className="bg-sky-50 text-sky-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-sky-200">
                 {waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length} Terverifikasi Aktif
               </span>
             </div>
@@ -745,8 +745,8 @@ export default function RoleAdminBendahara() {
               onClick={() => setBiometricFilter('approved')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 biometricFilter === 'approved'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  ? 'bg-sky-600 text-white shadow-sm'
+                  : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200'
               }`}
             >
               Disetujui ({waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length})
@@ -799,7 +799,7 @@ export default function RoleAdminBendahara() {
                         isPending 
                           ? 'border-amber-300 bg-amber-50/50 shadow-sm' 
                           : isApproved 
-                          ? 'border-emerald-200 bg-emerald-50/30' 
+                          ? 'border-sky-200 bg-sky-50/30' 
                           : 'border-slate-200 bg-slate-50'
                       }`}
                     >
@@ -808,7 +808,7 @@ export default function RoleAdminBendahara() {
                           isPending 
                             ? 'bg-amber-100 text-amber-700' 
                             : isApproved 
-                            ? 'bg-emerald-100 text-emerald-700' 
+                            ? 'bg-sky-100 text-sky-700' 
                             : 'bg-slate-200 text-slate-600'
                         }`}>
                           <Fingerprint className="w-6 h-6" />
@@ -824,7 +824,7 @@ export default function RoleAdminBendahara() {
                               isPending
                                 ? 'bg-amber-400 text-slate-900 animate-pulse'
                                 : isApproved
-                                ? 'bg-emerald-600 text-white'
+                                ? 'bg-sky-600 text-white'
                                 : isRejected
                                 ? 'bg-rose-600 text-white'
                                 : 'bg-slate-200 text-slate-600'
@@ -838,7 +838,7 @@ export default function RoleAdminBendahara() {
                             <span className="text-slate-500">Santri: </span>
                             {w.children.map((c, i) => (
                               <span key={c.id} className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800 text-[11px] mr-1.5 my-0.5">
-                                <strong className="text-emerald-800">{c.name}</strong>
+                                <strong className="text-sky-800">{c.name}</strong>
                                 <span className="text-slate-400">({c.class} • ISB: {c.nis})</span>
                               </span>
                             ))}
@@ -875,7 +875,7 @@ export default function RoleAdminBendahara() {
                                 approveFingerprint(w.parentToken);
                                 confetti({ particleCount: 60, spread: 50 });
                               }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
+                              className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
                             >
                               <Check className="w-4 h-4" />
                               <span>Setujui (Approve)</span>
@@ -888,10 +888,10 @@ export default function RoleAdminBendahara() {
                             <button
                               type="button"
                               onClick={handleSendApprovalWA}
-                              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+                              className="bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors"
                               title="Kirim pemberitahuan ke WhatsApp wali bahwa sidik jari sudah aktif"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                              <MessageSquare className="w-3.5 h-3.5 text-sky-700" />
                               <span>Kirim Kabar ke WA</span>
                             </button>
 
@@ -963,7 +963,7 @@ export default function RoleAdminBendahara() {
                   name="name"
                   defaultValue={pesantrenInfo.name}
                   required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
               <div>
@@ -973,7 +973,7 @@ export default function RoleAdminBendahara() {
                   defaultValue={pesantrenInfo.whatsappAdmin}
                   required
                   placeholder="6281234567890"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
             </div>
@@ -983,7 +983,7 @@ export default function RoleAdminBendahara() {
               <input
                 name="tagline"
                 defaultValue={pesantrenInfo.tagline}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
               />
             </div>
 
@@ -992,14 +992,14 @@ export default function RoleAdminBendahara() {
               <input
                 name="address"
                 defaultValue={pesantrenInfo.address}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
               />
             </div>
 
             <div className="pt-2">
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md"
+                className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs shadow-md"
               >
                 Simpan Profil Pesantren
               </button>
@@ -1012,7 +1012,7 @@ export default function RoleAdminBendahara() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {pesantrenInfo.bankAccounts.map((acc, idx) => (
                 <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div className="font-bold text-emerald-800 text-xs">{acc.bank}</div>
+                  <div className="font-bold text-sky-800 text-xs">{acc.bank}</div>
                   <div className="text-base font-mono font-bold text-slate-900 mt-1">{acc.accountNo}</div>
                   <div className="text-xs text-slate-500 mt-0.5">a/n {acc.accountHolder}</div>
                 </div>
@@ -1074,7 +1074,7 @@ export default function RoleAdminBendahara() {
                     <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{formatDateTime(t.timestamp)}</td>
                     <td className="py-2.5 px-3 font-bold text-slate-900">{t.santriName} ({t.santriNis})</td>
                     <td className="py-2.5 px-3 text-slate-600">{t.categoryLabel || t.type}</td>
-                    <td className={`py-2.5 px-3 font-bold ${t.type === 'DEPOSIT' ? 'text-emerald-700' : 'text-slate-900'}`}>
+                    <td className={`py-2.5 px-3 font-bold ${t.type === 'DEPOSIT' ? 'text-sky-700' : 'text-slate-900'}`}>
                       {t.type === 'DEPOSIT' ? `+${formatRupiah(t.amount)}` : `-${formatRupiah(t.amount)}`}
                     </td>
                     <td className="py-2.5 px-3 text-slate-600">{formatRupiah(t.currentBalance)}</td>
@@ -1115,7 +1115,7 @@ export default function RoleAdminBendahara() {
                 setDemoMode(!demoState);
                 setDemoState(!demoState);
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs"
+              className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-4 py-2 rounded-xl text-xs"
             >
               {demoState ? 'Beralih ke Live Firebase' : 'Beralih ke Mode Demo'}
             </button>
@@ -1137,7 +1137,7 @@ export default function RoleAdminBendahara() {
                   value={fbConfig.apiKey || ''}
                   onChange={(e) => setFbConfig({ ...fbConfig, apiKey: e.target.value })}
                   placeholder="AIzaSy..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
               <div>
@@ -1147,7 +1147,7 @@ export default function RoleAdminBendahara() {
                   value={fbConfig.projectId || ''}
                   onChange={(e) => setFbConfig({ ...fbConfig, projectId: e.target.value })}
                   placeholder="maisya-saku-xxxx"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
               <div>
@@ -1157,7 +1157,7 @@ export default function RoleAdminBendahara() {
                   value={fbConfig.authDomain || ''}
                   onChange={(e) => setFbConfig({ ...fbConfig, authDomain: e.target.value })}
                   placeholder="maisya-saku-xxxx.firebaseapp.com"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
               <div>
@@ -1167,7 +1167,7 @@ export default function RoleAdminBendahara() {
                   value={fbConfig.storageBucket || ''}
                   onChange={(e) => setFbConfig({ ...fbConfig, storageBucket: e.target.value })}
                   placeholder="maisya-saku-xxxx.appspot.com"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
             </div>
@@ -1175,7 +1175,7 @@ export default function RoleAdminBendahara() {
             <div className="pt-2 flex justify-end">
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md"
+                className="bg-sky-600 hover:bg-sky-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md"
               >
                 Simpan & Muat Ulang Firebase
               </button>
@@ -1222,7 +1222,7 @@ export default function RoleAdminBendahara() {
                   name="name"
                   defaultValue={editingRole.name}
                   required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none font-semibold"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-semibold"
                 />
               </div>
 
@@ -1232,7 +1232,7 @@ export default function RoleAdminBendahara() {
                   name="title"
                   defaultValue={editingRole.title}
                   required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
 
@@ -1244,7 +1244,7 @@ export default function RoleAdminBendahara() {
                     defaultValue={editingRole.pin}
                     required
                     maxLength={6}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold tracking-widest text-emerald-800 focus:bg-white focus:border-emerald-600 outline-none text-center"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold tracking-widest text-sky-800 focus:bg-white focus:border-sky-600 outline-none text-center"
                   />
                 </div>
                 <div>
@@ -1252,7 +1252,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="phone"
                     defaultValue={editingRole.phone}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1265,7 +1265,7 @@ export default function RoleAdminBendahara() {
                     id="role-token-input"
                     defaultValue={editingRole.token}
                     required
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold focus:bg-white focus:border-emerald-600 outline-none"
+                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold focus:bg-white focus:border-sky-600 outline-none"
                   />
                   <button
                     type="button"
@@ -1291,7 +1291,7 @@ export default function RoleAdminBendahara() {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm"
+                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm"
               >
                 Simpan Perubahan
               </button>
@@ -1355,7 +1355,7 @@ export default function RoleAdminBendahara() {
                     name="nis"
                     defaultValue={`20240100${santriList.length + 1}`}
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1364,7 +1364,7 @@ export default function RoleAdminBendahara() {
                     name="name"
                     required
                     placeholder="Nama santri..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none font-semibold"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-semibold"
                   />
                 </div>
               </div>
@@ -1376,7 +1376,7 @@ export default function RoleAdminBendahara() {
                     name="class"
                     defaultValue="Kelas 7A - Tahfizh"
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1384,7 +1384,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="room"
                     defaultValue="Kamar Abu Bakar 01"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1396,7 +1396,7 @@ export default function RoleAdminBendahara() {
                     name="parentName"
                     required
                     placeholder="Bpk / Ibu..."
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1405,7 +1405,7 @@ export default function RoleAdminBendahara() {
                     name="parentPhone"
                     defaultValue="081234567899"
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none font-mono"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-mono"
                   />
                 </div>
               </div>
@@ -1417,7 +1417,7 @@ export default function RoleAdminBendahara() {
                     name="parentToken"
                     defaultValue={`wali-santri-${santriList.length + 1}`}
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1426,7 +1426,7 @@ export default function RoleAdminBendahara() {
                     name="pin"
                     defaultValue="1234"
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-center font-bold focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-center font-bold focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1437,7 +1437,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="rfidTag"
                     defaultValue={`RFID-${Math.floor(100000 + Math.random() * 900000)}`}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1447,7 +1447,7 @@ export default function RoleAdminBendahara() {
                     type="number"
                     defaultValue="100000"
                     step="5000"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-emerald-800 focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-sky-800 focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1463,7 +1463,7 @@ export default function RoleAdminBendahara() {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm"
+                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm"
               >
                 Daftarkan Santri
               </button>
@@ -1518,7 +1518,7 @@ export default function RoleAdminBendahara() {
                     name="name"
                     defaultValue={editingSantri.name}
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1527,7 +1527,7 @@ export default function RoleAdminBendahara() {
                     name="nis"
                     defaultValue={editingSantri.nis}
                     required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1538,7 +1538,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="class"
                     defaultValue={editingSantri.class}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1546,7 +1546,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="room"
                     defaultValue={editingSantri.room}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1557,7 +1557,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="parentName"
                     defaultValue={editingSantri.parentName}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1565,7 +1565,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="parentPhone"
                     defaultValue={editingSantri.parentPhone}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1576,7 +1576,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="parentToken"
                     defaultValue={editingSantri.parentToken}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-600 outline-none font-bold"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none font-bold"
                   />
                 </div>
                 <div>
@@ -1584,7 +1584,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="pin"
                     defaultValue={editingSantri.pin}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-center font-bold focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-center font-bold focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1595,7 +1595,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="rfidTag"
                     defaultValue={editingSantri.rfidTag}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1603,7 +1603,7 @@ export default function RoleAdminBendahara() {
                   <input
                     name="barcode"
                     defaultValue={editingSantri.barcode}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
                 <div>
@@ -1612,7 +1612,7 @@ export default function RoleAdminBendahara() {
                     name="balance"
                     type="number"
                     defaultValue={editingSantri.balance}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-emerald-800 focus:bg-white focus:border-emerald-600 outline-none"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-bold text-sky-800 focus:bg-white focus:border-sky-600 outline-none"
                   />
                 </div>
               </div>
@@ -1628,7 +1628,7 @@ export default function RoleAdminBendahara() {
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm"
+                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm"
               >
                 Simpan Perubahan
               </button>
@@ -1685,10 +1685,10 @@ export default function RoleAdminBendahara() {
             </div>
 
             {/* Smartcard Layout */}
-            <div className="bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-900 text-white p-5 rounded-3xl shadow-xl relative overflow-hidden border-2 border-amber-300/40">
+            <div className="bg-gradient-to-br from-sky-500 via-sky-600 to-blue-700 text-white p-5 rounded-3xl shadow-xl relative overflow-hidden border-2 border-amber-300/40">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-emerald-200">MA'HAD IMAM SYAFI'I BREBES</div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-sky-200">MA'HAD IMAM SYAFI'I BREBES</div>
                   <div className="text-sm font-black tracking-wide">MAISYA-SAKU SMARTCARD</div>
                 </div>
                 <div className="w-8 h-8 rounded-full bg-amber-400/20 border border-amber-300 flex items-center justify-center text-amber-300 text-xs font-serif font-black">
@@ -1704,9 +1704,9 @@ export default function RoleAdminBendahara() {
                 />
                 <div>
                   <div className="text-base font-black leading-tight text-white">{selectedCardSantri.name}</div>
-                  <div className="text-xs text-emerald-200 font-mono mt-0.5">NIS: {selectedCardSantri.nis}</div>
-                  <div className="text-xs text-emerald-100">{selectedCardSantri.class}</div>
-                  <div className="text-[11px] text-emerald-300">{selectedCardSantri.room}</div>
+                  <div className="text-xs text-sky-200 font-mono mt-0.5">NIS: {selectedCardSantri.nis}</div>
+                  <div className="text-xs text-sky-100">{selectedCardSantri.class}</div>
+                  <div className="text-[11px] text-sky-300">{selectedCardSantri.room}</div>
                 </div>
               </div>
 
@@ -1715,7 +1715,7 @@ export default function RoleAdminBendahara() {
                   <div className="font-mono font-black text-xs tracking-widest">{selectedCardSantri.barcode}</div>
                   <div className="text-[9px] text-slate-500 font-sans">RFID: {selectedCardSantri.rfidTag}</div>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-800">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-sky-800">
                   <CreditCard className="w-4 h-4" />
                   <span>CASHLESS</span>
                 </div>
@@ -1734,7 +1734,7 @@ export default function RoleAdminBendahara() {
               <button
                 type="button"
                 onClick={() => setSelectedCardSantri(null)}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-xs"
+                className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 rounded-xl text-xs"
               >
                 Tutup
               </button>

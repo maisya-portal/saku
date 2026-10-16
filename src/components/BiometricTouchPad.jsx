@@ -78,9 +78,9 @@ export default function BiometricTouchPad({
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-slate-900 text-white rounded-3xl shadow-2xl border border-slate-800 max-w-sm mx-auto select-none">
-      <div className="flex items-center gap-2 mb-2 text-emerald-400 font-semibold text-sm">
-        <ShieldCheck className="w-5 h-5 text-emerald-400" />
+    <div className="flex flex-col items-center justify-center p-6 bg-slate-900 text-white rounded-3xl shadow-2xl border border-sky-900/60 max-w-sm mx-auto select-none">
+      <div className="flex items-center gap-2 mb-2 text-sky-400 font-semibold text-sm">
+        <ShieldCheck className="w-5 h-5 text-sky-400" />
         <span>Biometric Touch Verification</span>
       </div>
 
@@ -89,7 +89,7 @@ export default function BiometricTouchPad({
       </h3>
       
       {santriName && (
-        <div className="bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 px-4 py-1.5 rounded-full text-sm font-medium mb-2">
+        <div className="bg-sky-950/80 border border-sky-500/30 text-sky-300 px-4 py-1.5 rounded-full text-sm font-medium mb-2">
           Santri: <span className="font-bold text-white">{santriName}</span>
         </div>
       )}
@@ -121,7 +121,7 @@ export default function BiometricTouchPad({
             cy="50"
             r="44"
             className={`transition-all duration-75 ${
-              verified ? 'stroke-emerald-400' : holding ? 'stroke-emerald-400' : 'stroke-transparent'
+              verified ? 'stroke-sky-400' : holding ? 'stroke-sky-400' : 'stroke-transparent'
             }`}
             strokeWidth="6"
             strokeDasharray="276.46"
@@ -131,7 +131,7 @@ export default function BiometricTouchPad({
           />
         </svg>
 
-        {/* Interactive Fingerprint Button */}
+        {/* Interactive Fingerprint Button (Scalev Sky Blue) */}
         <button
           type="button"
           onMouseDown={startHold}
@@ -142,10 +142,10 @@ export default function BiometricTouchPad({
           disabled={verified}
           className={`absolute w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-300 outline-none ${
             verified
-              ? 'bg-emerald-600 scale-105 shadow-lg shadow-emerald-500/50'
+              ? 'bg-sky-500 scale-105 shadow-lg shadow-sky-500/50'
               : holding
-              ? 'bg-emerald-900/70 scale-95 ring-4 ring-emerald-400/60 shadow-inner'
-              : 'bg-slate-800/90 hover:bg-slate-750 active:scale-95 shadow-xl border-2 border-emerald-500/30'
+              ? 'bg-sky-950/80 scale-95 ring-4 ring-sky-400/60 shadow-inner'
+              : 'bg-slate-800/90 hover:bg-slate-750 active:scale-95 shadow-xl border-2 border-sky-500/40'
           }`}
           style={{ touchAction: 'none' }}
         >
@@ -155,12 +155,12 @@ export default function BiometricTouchPad({
             <div className="relative">
               <Fingerprint
                 className={`w-16 h-16 transition-colors duration-200 ${
-                  holding ? 'text-emerald-300 animate-pulse' : 'text-slate-400'
+                  holding ? 'text-sky-300 animate-pulse' : 'text-slate-400'
                 }`}
               />
               {/* Laser scanning beam */}
               {holding && (
-                <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-300 to-transparent shadow-sm shadow-emerald-400 animate-scan-line top-1/2 -translate-y-1/2" />
+                <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-sky-300 to-transparent shadow-sm shadow-sky-400 animate-scan-line top-1/2 -translate-y-1/2" />
               )}
             </div>
           )}
@@ -183,7 +183,7 @@ export default function BiometricTouchPad({
           type="button"
           onClick={handleHardwareFingerprint}
           disabled={verified}
-          className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700 text-emerald-400 px-4 py-2 rounded-xl transition-all border border-slate-700 active:scale-95"
+          className="flex items-center gap-2 text-xs bg-slate-800 hover:bg-slate-700 text-sky-400 px-4 py-2 rounded-xl transition-all border border-slate-700 active:scale-95"
         >
           <Zap className="w-3.5 h-3.5 text-amber-400" />
           <span>Simulasi Tap Alat Fingerprint USB</span>

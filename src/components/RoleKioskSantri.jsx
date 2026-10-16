@@ -77,9 +77,9 @@ export default function RoleKioskSantri() {
       {authStep === 'idle' && (
         <div className="space-y-6">
           {/* Hero Banner */}
-          <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-900 text-white rounded-3xl p-8 sm:p-10 shadow-2xl text-center relative overflow-hidden">
+          <div className="bg-gradient-to-br from-sky-900 via-blue-900 to-slate-900 text-white rounded-3xl p-8 sm:p-10 shadow-2xl text-center relative overflow-hidden">
             <div className="relative z-10 max-w-xl mx-auto space-y-3">
-              <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-500/30">
+              <div className="inline-flex items-center gap-2 bg-sky-500/20 text-sky-300 px-4 py-1.5 rounded-full text-xs font-bold border border-sky-500/30">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 <span>Anjungan Mandiri Santri Ponpes Imam Syafi'i Brebes</span>
               </div>
@@ -87,7 +87,7 @@ export default function RoleKioskSantri() {
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
                 Cek Saldo & Informasi Keuangan Santri
               </h2>
-              <p className="text-sm text-emerald-200/80 leading-relaxed">
+              <p className="text-sm text-sky-200/80 leading-relaxed">
                 Tempelkan Kartu RFID Santri, Scan Barcode, atau pilih nama dan tempelkan sidik jari Anda di layar
               </p>
             </div>
@@ -96,7 +96,7 @@ export default function RoleKioskSantri() {
           {/* Scanner & Quick Tap Box */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <ScanLine className="w-5 h-5 text-emerald-600" />
+              <ScanLine className="w-5 h-5 text-sky-600" />
               <span>Opsi 1: Tap Kartu RFID atau Scan Barcode Kartu Santri</span>
             </h3>
 
@@ -109,7 +109,7 @@ export default function RoleKioskSantri() {
           {/* Manual Fingerprint Login by Name */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Fingerprint className="w-5 h-5 text-emerald-600" />
+              <Fingerprint className="w-5 h-5 text-sky-600" />
               <span>Opsi 2: Login Memakai Sidik Jari (Pilih Nama Anda Lalu Tempelkan Jari):</span>
             </h3>
 
@@ -119,25 +119,25 @@ export default function RoleKioskSantri() {
                   key={s.id}
                   type="button"
                   onClick={() => handleStartFingerprintLogin(s)}
-                  className="p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 bg-slate-50 hover:bg-emerald-50/50 text-left transition-all group flex flex-col justify-between"
+                  className="p-4 rounded-2xl border border-slate-200 hover:border-sky-500 bg-slate-50 hover:bg-sky-50/50 text-left transition-all group flex flex-col justify-between"
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <img
                       src={s.avatar}
                       alt={s.name}
-                      className="w-10 h-10 rounded-xl object-cover border border-slate-200 group-hover:border-emerald-500"
+                      className="w-10 h-10 rounded-xl object-cover border border-slate-200 group-hover:border-sky-500"
                     />
                     <div>
-                      <div className="font-bold text-xs text-slate-900 group-hover:text-emerald-800 line-clamp-1">
+                      <div className="font-bold text-xs text-slate-900 group-hover:text-sky-800 line-clamp-1">
                         {s.name}
                       </div>
                       <div className="text-[10px] text-slate-500">{s.class}</div>
                     </div>
                   </div>
 
-                  <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] font-semibold text-emerald-700">
+                  <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] font-semibold text-sky-700">
                     <span>Verifikasi Sidik Jari</span>
-                    <Fingerprint className="w-4 h-4 text-emerald-600" />
+                    <Fingerprint className="w-4 h-4 text-sky-600" />
                   </div>
                 </button>
               ))}
@@ -188,7 +188,7 @@ export default function RoleKioskSantri() {
           </div>
 
           {/* Profile & Saldo Card */}
-          <div className="bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-800 text-white rounded-3xl p-6 sm:p-8 shadow-xl">
+          <div className="bg-gradient-to-br from-sky-500 via-sky-600 to-blue-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
                 <img
@@ -198,21 +198,21 @@ export default function RoleKioskSantri() {
                 />
                 <div>
                   <div className="inline-flex items-center gap-1 bg-white/20 px-2.5 py-0.5 rounded-full text-[11px] font-bold mb-1">
-                    <CheckCircle className="w-3 h-3 text-emerald-200" />
+                    <CheckCircle className="w-3 h-3 text-sky-200" />
                     <span>Terverifikasi</span>
                   </div>
                   <h3 className="text-xl sm:text-2xl font-black">{activeSantri.name}</h3>
-                  <div className="text-xs text-emerald-100 mt-0.5">
+                  <div className="text-xs text-sky-100 mt-0.5">
                     NIS: {activeSantri.nis} • {activeSantri.class}
                   </div>
-                  <div className="text-xs text-emerald-200 mt-1">
+                  <div className="text-xs text-sky-200 mt-1">
                     {activeSantri.room} • {activeSantri.halaqah}
                   </div>
                 </div>
               </div>
 
               <div className="bg-white/15 backdrop-blur-md p-5 rounded-2xl border border-white/20 text-right sm:min-w-64">
-                <div className="text-xs font-semibold text-emerald-200 uppercase tracking-wider">
+                <div className="text-xs font-semibold text-sky-200 uppercase tracking-wider">
                   Sisa Saldo Uang Saku
                 </div>
                 <div className="text-3xl sm:text-4xl font-black text-white mt-1">
@@ -224,21 +224,21 @@ export default function RoleKioskSantri() {
             {/* Daily limit allowance info */}
             {activeSantri.spendingLimit?.active && (
               <div className="mt-6 pt-4 border-t border-white/20 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="bg-emerald-950/40 p-3 rounded-xl border border-emerald-400/20">
-                  <div className="text-emerald-200 text-[11px]">Batas Dari Orang Tua:</div>
+                <div className="bg-sky-950/40 p-3 rounded-xl border border-sky-400/20">
+                  <div className="text-sky-200 text-[11px]">Batas Dari Orang Tua:</div>
                   <div className="font-bold text-white mt-0.5">
                     {formatRupiah(activeSantri.spendingLimit.amount)} / {activeSantri.spendingLimit.type}
                   </div>
                 </div>
-                <div className="bg-emerald-950/40 p-3 rounded-xl border border-emerald-400/20">
-                  <div className="text-emerald-200 text-[11px]">Sudah Digunakan Hari Ini:</div>
+                <div className="bg-sky-950/40 p-3 rounded-xl border border-sky-400/20">
+                  <div className="text-sky-200 text-[11px]">Sudah Digunakan Hari Ini:</div>
                   <div className="font-bold text-amber-300 mt-0.5">
                     {formatRupiah(activeSantri.spendingUsed?.daily || 0)}
                   </div>
                 </div>
-                <div className="bg-emerald-950/40 p-3 rounded-xl border border-emerald-400/20">
-                  <div className="text-emerald-200 text-[11px]">Sisa Jajan Hari Ini:</div>
-                  <div className="font-bold text-emerald-300 mt-0.5">
+                <div className="bg-sky-950/40 p-3 rounded-xl border border-sky-400/20">
+                  <div className="text-sky-200 text-[11px]">Sisa Jajan Hari Ini:</div>
+                  <div className="font-bold text-sky-300 mt-0.5">
                     {formatRupiah(Math.max(0, activeSantri.spendingLimit.amount - (activeSantri.spendingUsed?.daily || 0)))}
                   </div>
                 </div>
@@ -249,7 +249,7 @@ export default function RoleKioskSantri() {
           {/* Last 5 Transactions */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-emerald-600" />
+              <Receipt className="w-4 h-4 text-sky-600" />
               <span>5 Riwayat Penggunaan Terakhir Ananda:</span>
             </h4>
 
@@ -274,7 +274,7 @@ export default function RoleKioskSantri() {
                     </div>
                     <div className="text-right">
                       <div className={`text-xs font-black ${
-                        tx.type === 'DEPOSIT' ? 'text-emerald-600' : 'text-slate-900'
+                        tx.type === 'DEPOSIT' ? 'text-sky-600' : 'text-slate-900'
                       }`}>
                         {tx.type === 'DEPOSIT' ? `+${formatRupiah(tx.amount)}` : `-${formatRupiah(tx.amount)}`}
                       </div>

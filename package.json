@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node -e \"import('fs').then(fs => fs.copyFileSync('dist/index.html', 'dist/404.html'))\"",
+    "build": "vite build && node -e \"import('fs').then(fs => { fs.copyFileSync('dist/index.html', 'dist/404.html'); fs.cpSync('dist', 'docs', { recursive: true }); })\"",
     "lint": "oxlint",
     "preview": "vite preview"
   },

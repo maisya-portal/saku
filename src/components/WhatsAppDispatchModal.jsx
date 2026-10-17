@@ -31,8 +31,8 @@ export default function WhatsAppDispatchModal({
   const [urlMode, setUrlMode] = useState('online'); // 'online' | 'localhost' | 'custom'
   const [customDomain, setCustomDomain] = useState(() => {
     const saved = localStorage.getItem('maisya_public_domain');
-    if (!saved || saved.includes('ponpes-imamsyafii.github.io')) {
-      return 'https://maisya-portal.github.io/saku/';
+    if (!saved || saved.includes('github.io') || saved.includes('ponpes-imamsyafii')) {
+      return 'https://isb-portal.web.app/';
     }
     return saved;
   });

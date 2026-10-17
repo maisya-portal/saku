@@ -1,5 +1,5 @@
 // Firebase Client Configuration & Real-Time Sync Service
-// Supports both live Firebase Project and Zero-Config Offline/Demo Mode
+// Project: isb-portal (Ma'had Imam Syafi'i Brebes - Maisya-Saku)
 import { initializeApp, getApps } from 'firebase/app';
 import { 
   getFirestore, 
@@ -15,6 +15,15 @@ import {
   limit 
 } from 'firebase/firestore';
 
+export const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAwuR_YnHLeikl1HE6KsveXjZVy8xSwdsw",
+  authDomain: "isb-portal.firebaseapp.com",
+  projectId: "isb-portal",
+  storageBucket: "isb-portal.firebasestorage.app",
+  messagingSenderId: "440240262246",
+  appId: "1:440240262246:web:0f314f7fa19cd8d0f8f1a7"
+};
+
 // Default / Stored configuration
 const STORAGE_CONFIG_KEY = 'maisya_saku_firebase_config';
 const USE_DEMO_KEY = 'maisya_saku_use_demo_mode';
@@ -23,20 +32,21 @@ export function getSavedFirebaseConfig() {
   const local = localStorage.getItem(STORAGE_CONFIG_KEY);
   if (local) {
     try {
-      return JSON.parse(local);
+      const parsed = JSON.parse(local);
+      if (parsed && parsed.apiKey) return parsed;
     } catch (e) {
       console.error('Failed to parse stored firebase config', e);
     }
   }
   
-  // Fallback to Vite environment variables if defined
+  // Fallback to Vite environment variables or production isb-portal config
   return {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || DEFAULT_FIREBASE_CONFIG.apiKey,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_FIREBASE_CONFIG.authDomain,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_CONFIG.projectId,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || DEFAULT_FIREBASE_CONFIG.storageBucket,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || DEFAULT_FIREBASE_CONFIG.appId
   };
 }
 
@@ -50,6 +60,7 @@ export function isDemoMode() {
   if (saved !== null) {
     return saved === 'true';
   }
+  // Default to live Firebase since credentials are provided
   const config = getSavedFirebaseConfig();
   return !config.apiKey || !config.projectId;
 }
@@ -67,7 +78,7 @@ if (currentConfig.apiKey && currentConfig.projectId && !isDemoMode()) {
   try {
     app = getApps().length === 0 ? initializeApp(currentConfig) : getApps()[0];
     db = getFirestore(app);
-    console.log('Firebase initialized successfully for project:', currentConfig.projectId);
+    console.log('Firebase Firestore connected successfully for project:', currentConfig.projectId);
   } catch (err) {
     console.warn('Firebase init error, falling back to local sync mode:', err);
   }

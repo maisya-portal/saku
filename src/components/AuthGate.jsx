@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp, playSound } from '../context/AppContext';
 import BiometricTouchPad from './BiometricTouchPad';
-import WaliLinkGenerator from './WaliLinkGenerator';
+import LandingPage from './LandingPage';
 import { openWhatsAppDirect } from '../utils/whatsapp';
 import confetti from 'canvas-confetti';
 
@@ -186,9 +186,9 @@ export default function AuthGate() {
     openWhatsAppDirect(pesantrenInfo.whatsappAdmin, msg);
   };
 
-  // IF NO TOKEN OR TOKEN INVALID: RENDER WALI LINK GENERATOR DIRECTLY!
+  // IF NO TOKEN OR TOKEN INVALID: RENDER COMPREHENSIVE LANDING PAGE!
   if (!activeToken || !targetAccount) {
-    return <WaliLinkGenerator />;
+    return <LandingPage onSelectRole={(tok) => setActiveToken(tok)} />;
   }
 
   const isWali = targetAccount.type === 'wali';

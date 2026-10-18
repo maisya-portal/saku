@@ -24,6 +24,7 @@ import {
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
 import confetti from 'canvas-confetti';
 import { openWhatsAppDirect } from '../utils/whatsapp';
+import WhatsAppMessageModal from './WhatsAppMessageModal';
 
 export default function RoleWaliSantri() {
   const {
@@ -42,6 +43,16 @@ export default function RoleWaliSantri() {
 
   // Tab views within Wali Portal: 'overview' | 'topup' | 'limits' | 'history'
   const [activeTab, setActiveTab] = useState('overview');
+
+  // WhatsApp Message Modal State
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waModalData, setWaModalData] = useState({
+    recipientName: '',
+    recipientRole: '',
+    phoneNumber: '',
+    initialMessage: '',
+    title: ''
+  });
 
   // Transfer Category State: 'uang_saku' (auto Ustadz Firdhi) | 'spp' (auto Bapak Imawan)
   const [transferCategory, setTransferCategory] = useState('uang_saku');
@@ -145,8 +156,17 @@ export default function RoleWaliSantri() {
           `Catatan: ${topupNote || '-'}\n\n` +
           `Mohon dibantu verifikasi saldo pada sistem Maisya-Saku. Jazakumullahu khairan.`;
 
-      openWhatsAppDirect(activeBank.contactWa, waMessage);
-      showToast(`Konfirmasi transfer berhasil dibuat & diarahkan ke WhatsApp ${activeBank.contactName}!`, 'success');
+      // Open preview and edit modal for WhatsApp confirmation
+      setWaModalData({
+        recipientName: activeBank.contactName,
+        recipientRole: activeBank.label,
+        phoneNumber: activeBank.contactWa,
+        initialMessage: waMessage,
+        title: `Konfirmasi ${transferCategory === 'spp' ? 'SPP' : 'Uang Saku'} (${activeBank.contactName})`
+      });
+      setWaModalOpen(true);
+
+      showToast(`Permohonan tercatat! Silakan tinjau dan kirim via WhatsApp ${activeBank.contactName}.`, 'success');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -949,6 +969,17 @@ export default function RoleWaliSantri() {
           </div>
         </div>
       )}
+
+      {/* WhatsApp Message Confirmation Modal */}
+      <WhatsAppMessageModal
+        isOpen={waModalOpen}
+        onClose={() => setWaModalOpen(false)}
+        recipientName={waModalData.recipientName}
+        recipientRole={waModalData.recipientRole}
+        phoneNumber={waModalData.phoneNumber}
+        initialMessage={waModalData.initialMessage}
+        title={waModalData.title}
+      />
     </div>
   );
 }

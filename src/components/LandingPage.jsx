@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   ShieldCheck, 
   Send, 
@@ -32,10 +32,15 @@ import {
   Smartphone,
   ChevronRight,
   BadgeCheck,
-  ChevronDown
+  ChevronDown,
+  Fingerprint,
+  AlertTriangle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useApp, playSound, formatRupiah } from '../context/AppContext';
 import { formatPhoneNumber, openWhatsAppDirect } from '../utils/whatsapp';
+import WhatsAppMessageModal from './WhatsAppMessageModal';
 import confetti from 'canvas-confetti';
 
 export default function LandingPage({ onSelectRole }) {
@@ -43,10 +48,26 @@ export default function LandingPage({ onSelectRole }) {
     pesantrenInfo, 
     registerWaliSantri, 
     roleAccounts, 
+    santriList,
     theme, 
     toggleTheme, 
     showToast 
   } = useApp();
+
+  // Top Announcement Bar collapse state
+  const [isTopBarHidden, setIsTopBarHidden] = useState(() => {
+    return localStorage.getItem('maisya_hide_topbar') === 'true';
+  });
+
+  // WhatsApp Message Modal State
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waModalData, setWaModalData] = useState({
+    recipientName: '',
+    recipientRole: '',
+    phoneNumber: '',
+    initialMessage: '',
+    title: ''
+  });
 
   // Form State
   const [parentName, setParentName] = useState('');
@@ -60,6 +81,83 @@ export default function LandingPage({ onSelectRole }) {
   const [staffPinGateOpen, setStaffPinGateOpen] = useState(false);
   const [staffPinInput, setStaffPinInput] = useState('');
   const [staffPinError, setStaffPinError] = useState('');
+
+  // Live lookup for existing registered Wali Santri
+  const matchedExistingWali = useMemo(() => {
+    const trimmedName = parentName.trim().toLowerCase();
+    const cleanPhone = parentPhone.replace(/\D/g, '');
+    if (!trimmedName && cleanPhone.length < 5) return null;
+
+    const match = santriList.filter(s => {
+      const sName = (s.parentName || '').trim().toLowerCase();
+      const sPhone = (s.parentPhone || '').replace(/\D/g, '');
+      const nameMatch = trimmedName && sName && (sName === trimmedName || (trimmedName.length >= 4 && sName.includes(trimmedName)));
+      const phoneMatch = cleanPhone.length >= 5 && sPhone && (sPhone.includes(cleanPhone) || cleanPhone.includes(sPhone));
+      return nameMatch || phoneMatch;
+    });
+
+    if (match.length > 0) {
+      const first = match[0];
+      return {
+        parentName: first.parentName,
+        parentPhone: first.parentPhone,
+        parentToken: first.parentToken,
+        bindingLockCode: first.bindingLockCode,
+        fingerprintStatus: first.fingerprintStatus || 'NOT_REGISTERED',
+        pin: first.pin,
+        children: match
+      };
+    }
+    return null;
+  }, [parentName, parentPhone, santriList]);
+
+  // Check if an individual child is already registered
+  const checkExistingChild = useCallback((childName, childIsb) => {
+    const trimmedName = (childName || '').trim().toLowerCase();
+    const cleanIsb = (childIsb || '').trim().toLowerCase().replace(/[^0-9]/g, '');
+    if (!trimmedName && !cleanIsb) return null;
+
+    return santriList.find(s => {
+      const sName = (s.name || '').trim().toLowerCase();
+      const sNis = (s.nis || '').trim().toLowerCase().replace(/[^0-9]/g, '');
+      const sBarcode = (s.barcode || '').trim().toLowerCase();
+      return (trimmedName && sName === trimmedName) || (cleanIsb && (sNis === cleanIsb || sBarcode.includes(cleanIsb)));
+    });
+  }, [santriList]);
+
+  // WhatsApp Handlers with Form Preview Modals
+  const handleOpenAdminWAModal = () => {
+    setWaModalData({
+      recipientName: "Admin Ma'had Imam Syafi'i Brebes",
+      recipientRole: "Layanan & Bantuan Portal Maisya-Saku",
+      phoneNumber: pesantrenInfo.whatsappAdmin || "6282119836050",
+      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\nSaya ingin menanyakan informasi terkait sistem keuangan santri Maisya-Saku: \n[Tuliskan pertanyaan atau kendala Anda di sini]\n\nJazakumullahu khairan.`,
+      title: "Bantuan Admin Ma'had via WhatsApp"
+    });
+    setWaModalOpen(true);
+  };
+
+  const handleOpenUangSakuWAModal = () => {
+    setWaModalData({
+      recipientName: "Ustadz Firdhi",
+      recipientRole: "Pengelola Uang Saku Santri (Jajan, Laundry, Wartel & Tarik Tunai)",
+      phoneNumber: "6281949682554",
+      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Ustadz Firdhi (Pengelola Uang Saku Ma'had Imam Syafi'i Brebes).\n\nSaya ingin konfirmasi transfer pengisian saldo uang saku santri:\nNama Santri: [Nama Santri]\nNomor ISB / NIS: [Nomor ISB]\nNominal Transfer: Rp [Nominal]\nRekening Tujuan: Bank BSI 5221717173 a.n. Ponpes Imam Syafii Brebes\nCatatan Tambahan: [Tambahkan catatan jika ada]\n\nMohon dibantu verifikasi saldo. Jazakumullahu khairan.`,
+      title: "Konfirmasi Transfer Uang Saku (Ustadz Firdhi)"
+    });
+    setWaModalOpen(true);
+  };
+
+  const handleOpenSPPWAModal = () => {
+    setWaModalData({
+      recipientName: "Bapak Imawan",
+      recipientRole: "Bagian Keuangan & SPP Pesantren",
+      phoneNumber: "62818275720",
+      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Bapak Imawan (Bagian Keuangan SPP Ma'had Imam Syafi'i Brebes).\n\nSaya ingin konfirmasi transfer pembayaran SPP / Pendidikan santri:\nNama Santri: [Nama Santri]\nNomor ISB / NIS: [Nomor ISB]\nNominal Transfer: Rp [Nominal]\nRekening Tujuan: Bank BSI 6469965840 a.n. Yayasan Pendidikan Imam Syafi'i Brebes\nTagihan / Bulan: [Contoh: SPP Bulan Ini]\nCatatan Tambahan: [Tambahkan catatan jika ada]\n\nMohon dicatat dan dikonfirmasi pada sistem Maisya-Saku. Jazakumullahu khairan.`,
+      title: "Konfirmasi Transfer SPP (Bapak Imawan)"
+    });
+    setWaModalOpen(true);
+  };
 
   const handleOpenStaffGate = () => {
     setStaffPinGateOpen(true);
@@ -121,7 +219,7 @@ export default function LandingPage({ onSelectRole }) {
   };
 
   // Submit form
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!parentName.trim()) {
@@ -143,7 +241,7 @@ export default function LandingPage({ onSelectRole }) {
 
     setIsSubmitting(true);
     try {
-      const result = registerWaliSantri({
+      const result = await registerWaliSantri({
         parentName: parentName.trim(),
         parentPhone: clean,
         childrenList: validChildren
@@ -173,15 +271,22 @@ export default function LandingPage({ onSelectRole }) {
         `WhatsApp Admin: ${pesantrenInfo.phone}\n` +
         `Jazakumullahu khairan.`;
 
-      // Open WhatsApp directly via wa.me / app protocol
-      openWhatsAppDirect(result.cleanPhone, waMessage);
-
       setGeneratedResult({
         ...result,
         waMessage
       });
 
-      showToast('Tautan login berhasil dibuat & dialihkan ke WhatsApp!', 'success');
+      // Show preview and confirmation modal instead of blind redirect
+      setWaModalData({
+        recipientName: result.parentName,
+        recipientRole: "Wali Santri Penerima Tautan",
+        phoneNumber: result.cleanPhone,
+        initialMessage: waMessage,
+        title: "Pratinjau Tautan Akses & Kirim ke WhatsApp"
+      });
+      setWaModalOpen(true);
+
+      showToast('Tautan login berhasil dibuat! Silakan tinjau dan kirim via WhatsApp.', 'success');
     } catch (err) {
       showToast(err.message || 'Gagal membuat tautan login.', 'error');
     } finally {
@@ -221,50 +326,65 @@ export default function LandingPage({ onSelectRole }) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors selection:bg-sky-500 selection:text-white flex flex-col font-sans">
       
-      {/* 1. TOP ANNOUNCEMENT BAR (Scalev Blue Gradient) */}
-      <div className="bg-gradient-to-r from-sky-700 via-sky-600 to-sky-800 text-white text-[11px] sm:text-xs py-2 px-4 shadow-sm">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 truncate">
-            <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
-              Resmi
-            </span>
-            <span className="font-medium truncate">
-              {pesantrenInfo.name} • Portal Keuangan Santri Cashless & Transparan
-            </span>
-          </div>
+      {/* 1. TOP ANNOUNCEMENT BAR (Scalev Blue Gradient) - Collapsible */}
+      {!isTopBarHidden && (
+        <div className="bg-gradient-to-r from-sky-700 via-sky-600 to-sky-800 text-white text-[11px] sm:text-xs py-2 px-4 shadow-sm animate-in fade-in transition-all">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 truncate">
+              <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                Resmi
+              </span>
+              <span className="font-medium truncate">
+                {pesantrenInfo.name} • Portal Keuangan Santri Cashless & Transparan
+              </span>
+            </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <a 
-              href="https://wa.me/6282119836050" 
-              target="_blank" 
-              rel="noreferrer"
-              className="hover:underline flex items-center gap-1 font-semibold hidden md:inline-flex"
-            >
-              <Phone className="w-3 h-3" />
-              <span>Bantuan Admin: 082119836050</span>
-            </a>
+            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+              <button 
+                type="button"
+                onClick={handleOpenAdminWAModal}
+                className="hover:underline flex items-center gap-1 font-semibold hidden md:inline-flex text-white"
+              >
+                <Phone className="w-3 h-3" />
+                <span>Bantuan Admin: 082119836050</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-colors"
-              title={theme === 'dark' ? 'Ganti ke Tema Terang' : 'Ganti ke Tema Gelap'}
-            >
-              {theme === 'dark' ? (
-                <>
-                  <Sun className="w-3 h-3 text-amber-300" />
-                  <span>Terang</span>
-                </>
-              ) : (
-                <>
-                  <Moon className="w-3 h-3 text-slate-100" />
-                  <span>Gelap</span>
-                </>
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-colors"
+                title={theme === 'dark' ? 'Ganti ke Tema Terang' : 'Ganti ke Tema Gelap'}
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="w-3 h-3 text-amber-300" />
+                    <span>Terang</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-3 h-3 text-slate-100" />
+                    <span>Gelap</span>
+                  </>
+                )}
+              </button>
+
+              {/* Tombol Hide / Tutup Header Bar Atas */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTopBarHidden(true);
+                  localStorage.setItem('maisya_hide_topbar', 'true');
+                  showToast('Header pengumuman atas disembunyikan.', 'info', 1800);
+                }}
+                className="bg-white/10 hover:bg-white/25 p-1 rounded-full text-white/80 hover:text-white transition-colors"
+                title="Sembunyikan Pengumuman Atas"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 2. STICKY MAIN NAVBAR */}
       <nav className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
@@ -759,6 +879,96 @@ export default function LandingPage({ onSelectRole }) {
           ) : (
             /* REGISTRATION & LINK GENERATOR FORM */
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl space-y-6 transition-colors">
+              
+              {/* DETEKSI DATA WALI SANTRI SUDAH TERDAFTAR (Point 6) */}
+              {matchedExistingWali && (
+                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border-2 border-emerald-400 dark:border-emerald-500/60 text-slate-900 dark:text-white space-y-3 animate-in fade-in zoom-in-95 shadow-md shadow-emerald-500/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-black text-xs sm:text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>Data Wali Santri Sudah Terdaftar!</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700">
+                      Terkunci Resmi di Database
+                    </span>
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs space-y-1.5">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Nama Wali:</span>
+                      <strong className="text-slate-900 dark:text-white">{matchedExistingWali.parentName}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Nomor WhatsApp:</span>
+                      <strong className="font-mono text-emerald-700 dark:text-emerald-400">+{matchedExistingWali.parentPhone}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Santri Terikat:</span>
+                      <strong className="text-sky-600 dark:text-sky-400 text-right truncate max-w-[220px]">
+                        {matchedExistingWali.children.map(c => `${c.name} (${c.nis})`).join(', ')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800 font-mono">
+                      <span>Gembok: {matchedExistingWali.bindingLockCode || '-'}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">
+                        {matchedExistingWali.fingerprintStatus === 'APPROVED' ? '✓ Sidik Jari Terverifikasi' : 'Menunggu Persetujuan Admin'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onSelectRole) {
+                          onSelectRole(matchedExistingWali.parentToken);
+                        } else {
+                          window.location.hash = `token=${matchedExistingWali.parentToken}`;
+                        }
+                      }}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/25 transition-transform active:scale-95"
+                    >
+                      <Fingerprint className="w-4 h-4" />
+                      <span>Panggil Data & Buka Akses Sidik Jari</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const childSummary = matchedExistingWali.children
+                          .map((c, i) => `  ${i + 1}. *${c.name}* (Nomor ISB: *${c.nis}*)`)
+                          .join('\n');
+                        const cleanBase = window.location.origin + window.location.pathname;
+                        const fullLink = `${cleanBase.endsWith('/') ? cleanBase : cleanBase + '/'}#token=${matchedExistingWali.parentToken}`;
+                        const msg = 
+                          `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
+                          `Kepada Yth. Bapak/Ibu *${matchedExistingWali.parentName}*\n` +
+                          `Berikut adalah Data Registrasi Resmi & Tautan Akses Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
+                          `${childSummary}\n\n` +
+                          `🔐 Kode Gembok Database: *${matchedExistingWali.bindingLockCode || '-'}*\n` +
+                          `🔑 PIN Masuk Otomatis: *${matchedExistingWali.pin || '-'}*\n\n` +
+                          `Klik tautan di bawah ini untuk membuka halaman akses sidik jari Anda:\n` +
+                          `${fullLink}\n\n` +
+                          `Jazakumullahu khairan.`;
+
+                        setWaModalData({
+                          recipientName: matchedExistingWali.parentName,
+                          recipientRole: "Wali Santri Terdaftar",
+                          phoneNumber: matchedExistingWali.parentPhone,
+                          initialMessage: msg,
+                          title: "Kirim Ulang Tautan Akses ke WhatsApp"
+                        });
+                        setWaModalOpen(true);
+                      }}
+                      className="bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Send className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Kirim Ulang via WA</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Parent Name */}
                 <div className="space-y-1.5">
@@ -866,6 +1076,35 @@ export default function LandingPage({ onSelectRole }) {
                             />
                           </div>
                         </div>
+
+                        {/* Inline status if child already registered */}
+                        {(() => {
+                          const existingChild = checkExistingChild(child.name, child.isb);
+                          if (!existingChild) return null;
+                          return (
+                            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-600/50 text-[11px] text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 truncate">
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="truncate">
+                                  Santri <strong>{existingChild.name}</strong> ({existingChild.nis}) sudah terdaftar
+                                  {existingChild.parentName ? ` • Terikat: ${existingChild.parentName}` : ''}
+                                </span>
+                              </div>
+                              {!parentName && existingChild.parentName && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setParentName(existingChild.parentName);
+                                    if (existingChild.parentPhone) setParentPhone(existingChild.parentPhone);
+                                  }}
+                                  className="text-[10px] font-bold text-sky-600 dark:text-sky-400 underline shrink-0 hover:text-sky-700"
+                                >
+                                  Panggil Wali
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -925,27 +1164,36 @@ export default function LandingPage({ onSelectRole }) {
 
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">Bank Syariah Indonesia (BSI)</div>
-                <div className="text-2xl font-mono font-black text-sky-700 dark:text-sky-400 tracking-wider select-all mt-1">
-                  5221717173
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="text-2xl font-mono font-black text-sky-700 dark:text-sky-400 tracking-wider">
+                    5221 •••• •••• 73
+                  </div>
+                  <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-slate-300 dark:border-slate-700">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    <span>Disamarkan</span>
+                  </span>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
                   a.n. <span className="text-slate-900 dark:text-white font-bold">Ponpes Imam Syafii Brebes</span>
                 </div>
               </div>
 
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-sky-50 dark:bg-sky-950/60 p-2.5 rounded-xl border border-sky-200 dark:border-sky-800">
+                🔒 <strong>Nomor rekening disamarkan demi privasi & keamanan.</strong> Masuk ke portal wali santri untuk melihat nomor rekening lengkap dan instruksi transfer.
+              </div>
+
               <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
                 <strong>Peruntukan:</strong> Jajan Kantin, Laundry, Telepon/Wartel, & Tarik Tunai
               </div>
 
-              <a
-                href="https://wa.me/6281949682554"
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={handleOpenUangSakuWAModal}
                 className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>Konfirmasi Uang Saku: 081949682554 (Ustadz Firdhi)</span>
-              </a>
+              </button>
             </div>
 
             {/* Rekening 2: SPP & Pendidikan */}
@@ -961,27 +1209,36 @@ export default function LandingPage({ onSelectRole }) {
 
               <div>
                 <div className="text-xs text-slate-500 dark:text-slate-400">Bank Syariah Indonesia (BSI)</div>
-                <div className="text-2xl font-mono font-black text-purple-700 dark:text-purple-400 tracking-wider select-all mt-1">
-                  6469965840
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="text-2xl font-mono font-black text-purple-700 dark:text-purple-400 tracking-wider">
+                    6469 •••• •••• 40
+                  </div>
+                  <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-slate-300 dark:border-slate-700">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    <span>Disamarkan</span>
+                  </span>
                 </div>
                 <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
                   a.n. <span className="text-slate-900 dark:text-white font-bold">Yayasan Pendidikan Imam Syafi'i Brebes</span>
                 </div>
               </div>
 
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-purple-50 dark:bg-purple-950/60 p-2.5 rounded-xl border border-purple-200 dark:border-purple-800">
+                🔒 <strong>Nomor rekening disamarkan demi privasi & keamanan.</strong> Masuk ke portal wali santri untuk melihat nomor rekening lengkap dan rincian SPP.
+              </div>
+
               <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
                 <strong>Peruntukan:</strong> Pembayaran SPP Bulanan, Syahriyah, & Biaya Pendidikan
               </div>
 
-              <a
-                href="https://wa.me/62818275720"
-                target="_blank"
-                rel="noreferrer"
+              <button
+                type="button"
+                onClick={handleOpenSPPWAModal}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>Konfirmasi SPP: 0818275720 (Bapak Imawan)</span>
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -1013,14 +1270,14 @@ export default function LandingPage({ onSelectRole }) {
                 Jalan Terusan Islamic Center Sigempol KM 03 Limbangan Wetan Brebes
               </p>
               <div className="text-xs pt-1">
-                <a 
-                  href="https://wa.me/6282119836050" 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="text-sky-600 dark:text-sky-400 font-bold hover:underline"
+                <button 
+                  type="button"
+                  onClick={handleOpenAdminWAModal}
+                  className="text-sky-600 dark:text-sky-400 font-bold hover:underline flex items-center gap-1"
                 >
-                  WhatsApp Admin: 082119836050
-                </a>
+                  <Phone className="w-3 h-3" />
+                  <span>WhatsApp Admin: 082119836050</span>
+                </button>
               </div>
             </div>
 
@@ -1200,6 +1457,16 @@ export default function LandingPage({ onSelectRole }) {
         </div>
       )}
 
+      {/* MODAL 3: WHATSAPP MESSAGE PREVIEW & FORM MODAL */}
+      <WhatsAppMessageModal
+        isOpen={waModalOpen}
+        onClose={() => setWaModalOpen(false)}
+        recipientName={waModalData.recipientName}
+        recipientRole={waModalData.recipientRole}
+        phoneNumber={waModalData.phoneNumber}
+        initialMessage={waModalData.initialMessage}
+        title={waModalData.title}
+      />
     </div>
   );
 }

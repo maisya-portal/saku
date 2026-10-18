@@ -18,19 +18,21 @@ import {
   Moon,
   Smartphone,
   Phone,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import { useApp, playSound } from '../context/AppContext';
 import BiometricTouchPad from './BiometricTouchPad';
 import LandingPage from './LandingPage';
-import { openWhatsAppDirect } from '../utils/whatsapp';
+import WhatsAppMessageModal from './WhatsAppMessageModal';
 import confetti from 'canvas-confetti';
 
 export default function AuthGate() {
   const { 
     urlToken, 
     setUrlToken, 
-    resolveTargetFromToken, 
+    resolveTargetFromToken,
+    resolveTargetFromTokenAsync,
     loginWithPin, 
     loginWithBiometric, 
     requestFingerprintEnrollment,
@@ -45,10 +47,19 @@ export default function AuthGate() {
 
   const [activeToken, setActiveToken] = useState(urlToken || '');
   const [targetAccount, setTargetAccount] = useState(null);
-  const [authMode, setAuthMode] = useState('biometric'); // 'biometric' | 'pin'
+  const [isVerifyingToken, setIsVerifyingToken] = useState(false);
+  const [authMode, setAuthMode] = useState('biometric'); // Focus strictly on biometric!
   const [inputPin, setInputPin] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [failedFingerprintAttempts, setFailedFingerprintAttempts] = useState(0);
+  const [waModalOpen, setWaModalOpen] = useState(false);
+  const [waModalData, setWaModalData] = useState({
+    recipientName: '',
+    recipientRole: '',
+    phoneNumber: '',
+    initialMessage: '',
+    title: ''
+  });
   const pinInputRef = useRef(null);
 
   // Helper to extract clean token if user pastes a full URL or #token=xxx
@@ -75,26 +86,43 @@ export default function AuthGate() {
 
   // Update target when activeToken or santriList changes
   useEffect(() => {
+    let isCancelled = false;
     if (activeToken) {
       const clean = parseTokenString(activeToken);
-      const found = resolveTargetFromToken(clean);
-      setTargetAccount(found);
-      setInputPin('');
-      setErrorMsg('');
-      setFailedFingerprintAttempts(0);
-
-      if (found) {
+      const local = resolveTargetFromToken(clean);
+      if (local) {
+        setTargetAccount(local);
+        setInputPin('');
+        setErrorMsg('');
+        setFailedFingerprintAttempts(0);
+        setAuthMode('biometric'); // Strict biometric default
         window.location.hash = `token=${clean}`;
-        if (found.type === 'wali') {
-          setAuthMode('biometric'); // Focus to fingerprint strictly
-        } else {
-          setAuthMode('pin'); // Staff operasional using PIN
-        }
+      } else {
+        // Query remote Firestore if not found locally yet
+        setIsVerifyingToken(true);
+        resolveTargetFromTokenAsync(clean)
+          .then((remote) => {
+            if (!isCancelled) {
+              setIsVerifyingToken(false);
+              setTargetAccount(remote);
+              setInputPin('');
+              setErrorMsg('');
+              setFailedFingerprintAttempts(0);
+              setAuthMode('biometric');
+              if (remote) {
+                window.location.hash = `token=${clean}`;
+              }
+            }
+          })
+          .catch(() => {
+            if (!isCancelled) setIsVerifyingToken(false);
+          });
       }
     } else {
       setTargetAccount(null);
     }
-  }, [activeToken, resolveTargetFromToken, santriList]);
+    return () => { isCancelled = true; };
+  }, [activeToken, resolveTargetFromToken, resolveTargetFromTokenAsync, santriList]);
 
   // PIN Login
   const attemptPinLogin = useCallback((pinToTest) => {
@@ -204,18 +232,43 @@ export default function AuthGate() {
   // Contact Admin via WhatsApp for quick approval (Link wa.me/6282119836050)
   const handleContactAdminWA = () => {
     const adminPhone = pesantrenInfo.whatsappAdmin || '6282119836050';
-    const childList = targetAccount.children?.map(c => `${c.name} (${c.nis})`).join(', ') || targetAccount.title;
+    const childList = targetAccount?.children?.map(c => `${c.name} (${c.nis})`).join(', ') || targetAccount?.title || '';
     const msg = 
       `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\n` +
-      `Saya Wali Santri: *${targetAccount.name}*\n` +
+      `Saya Wali Santri: *${targetAccount?.name || '-'}*\n` +
       `Santri Terikat: *${childList}*\n` +
-      `Kode Gembok Database: *${targetAccount.bindingLockCode || '-'}*\n` +
-      `Kode Sidik Jari: *${targetAccount.fingerprintCode || '-'}*\n` +
-      `PIN Masuk Otomatis: *${targetAccount.pin || '-'}*\n\n` +
+      `Kode Gembok Database: *${targetAccount?.bindingLockCode || '-'}*\n` +
+      `Kode Sidik Jari: *${targetAccount?.fingerprintCode || '-'}*\n` +
+      `PIN Masuk Otomatis: *${targetAccount?.pin || '-'}*\n\n` +
       `Telah berhasil merekam pendaftaran sidik jari biometrik pada sistem Maisya-Saku.\n` +
       `Mohon dibantu verifikasi & persetujuannya agar tautan login sidik jari dapat aktif. Jazakumullahu khairan.`;
-    openWhatsAppDirect(adminPhone, msg);
+
+    setWaModalData({
+      recipientName: "Admin Ma'had Imam Syafi'i Brebes",
+      recipientRole: "Verifikasi Pendaftaran & Gembok Akun",
+      phoneNumber: adminPhone,
+      initialMessage: msg,
+      title: "Pratinjau Pesan Konfirmasi ke Admin Ma'had"
+    });
+    setWaModalOpen(true);
   };
+
+  // IF STILL VERIFYING TOKEN FROM FIRESTORE: RENDER LOADING SCREEN
+  if (isVerifyingToken) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 text-center select-none font-sans">
+        <div className="w-16 h-16 rounded-3xl bg-sky-100 dark:bg-sky-950/80 border-2 border-sky-400 text-sky-600 dark:text-sky-400 flex items-center justify-center animate-bounce mb-4 shadow-xl shadow-sky-500/20">
+          <Fingerprint className="w-8 h-8 animate-pulse" />
+        </div>
+        <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+          Memverifikasi Tautan Akses Resmi...
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs leading-relaxed">
+          Menghubungkan ke database Ma'had Imam Syafi'i Brebes untuk membuka pendaftaran sidik jari Anda
+        </p>
+      </div>
+    );
+  }
 
   // IF NO TOKEN OR TOKEN INVALID: RENDER COMPREHENSIVE LANDING PAGE
   if (!activeToken || !targetAccount) {
@@ -483,36 +536,7 @@ export default function AuthGate() {
                 </div>
               )}
 
-              {/* For Staff Roles: Mode Selector Available */}
-              {!isWali && (
-                <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('pin')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      authMode === 'pin'
-                        ? 'bg-sky-500 text-white shadow-md'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>PIN Petugas</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode('biometric')}
-                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                      authMode === 'biometric'
-                        ? 'bg-sky-500 text-white shadow-md'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Fingerprint className="w-3.5 h-3.5" />
-                    <span>Sidik Jari</span>
-                  </button>
-                </div>
-              )}
+              {/* Pure Biometric Login (PIN only revealed if fingerprint failed 3 times) */}
 
               {/* FINGERPRINT MODE (MANDATORY & FOCUSED FOR WALI SANTRI) */}
               {authMode === 'biometric' && (
@@ -646,18 +670,19 @@ export default function AuthGate() {
                   </div>
 
                   {/* Back to Biometric button */}
-                  {isWali && (
-                    <div className="text-center pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setAuthMode('biometric')}
-                        className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-semibold flex items-center justify-center gap-1 mx-auto"
-                      >
-                        <Fingerprint className="w-3.5 h-3.5" />
-                        <span>Kembali ke Sensor Sidik Jari</span>
-                      </button>
-                    </div>
-                  )}
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('biometric');
+                        setErrorMsg('');
+                      }}
+                      className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-semibold flex items-center justify-center gap-1 mx-auto"
+                    >
+                      <Fingerprint className="w-3.5 h-3.5" />
+                      <span>Kembali ke Sensor Sidik Jari</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </>
@@ -670,6 +695,17 @@ export default function AuthGate() {
       <div className="text-center text-[11px] text-slate-400 dark:text-slate-500 pb-2">
         {pesantrenInfo.name} • {pesantrenInfo.address} • WhatsApp: {pesantrenInfo.phone}
       </div>
+
+      {/* WhatsApp Message Modal */}
+      <WhatsAppMessageModal
+        isOpen={waModalOpen}
+        onClose={() => setWaModalOpen(false)}
+        recipientName={waModalData.recipientName}
+        recipientRole={waModalData.recipientRole}
+        phoneNumber={waModalData.phoneNumber}
+        initialMessage={waModalData.initialMessage}
+        title={waModalData.title}
+      />
     </div>
   );
 }

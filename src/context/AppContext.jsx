@@ -19,6 +19,8 @@ import {
   addDoc, 
   deleteDoc,
   setDoc, 
+  getDocs,
+  where,
   query, 
   orderBy 
 } from 'firebase/firestore';
@@ -343,9 +345,18 @@ export function AppProvider({ children }) {
     if (isDemoMode() || !db) return;
 
     try {
-      const unsubSantri = onSnapshot(collection(db, 'santri'), (snapshot) => {
+      const unsubSantri = onSnapshot(collection(db, 'santri'), async (snapshot) => {
         if (!snapshot.empty) {
           setSantriList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+        } else {
+          // If Firestore santri collection is empty, seed INITIAL_SANTRI so all devices have shared base data
+          try {
+            for (const s of INITIAL_SANTRI) {
+              await setDoc(doc(db, 'santri', s.id), s);
+            }
+          } catch (e) {
+            console.debug('Initial santri seed to Firestore error:', e);
+          }
         }
       });
 
@@ -402,8 +413,10 @@ export function AppProvider({ children }) {
   // Resolve target account for pending token (Role Account or Wali Santri)
   const resolveTargetFromToken = useCallback((token) => {
     if (!token) return null;
+    const cleanToken = token.trim().replace(/^#/, '');
+
     // Check staff role accounts
-    const roleAcc = roleAccounts.find(r => r.token.toLowerCase() === token.toLowerCase());
+    const roleAcc = roleAccounts.find(r => r.token.toLowerCase() === cleanToken.toLowerCase());
     if (roleAcc) {
       return {
         type: 'role',
@@ -418,7 +431,7 @@ export function AppProvider({ children }) {
     }
 
     // Check Wali Santri tokens
-    const santriMatch = santriList.filter(s => s.parentToken && s.parentToken.toLowerCase() === token.toLowerCase());
+    const santriMatch = santriList.filter(s => s.parentToken && s.parentToken.toLowerCase() === cleanToken.toLowerCase());
     if (santriMatch.length > 0) {
       const first = santriMatch[0];
       return {
@@ -445,6 +458,54 @@ export function AppProvider({ children }) {
 
     return null;
   }, [roleAccounts, santriList]);
+
+  // Async token resolver that queries Cloud Firestore if local state hasn't synced yet
+  const resolveTargetFromTokenAsync = useCallback(async (token) => {
+    if (!token) return null;
+    const cleanToken = token.trim().replace(/^#/, '');
+
+    // 1. Try immediate synchronous resolution
+    const local = resolveTargetFromToken(cleanToken);
+    if (local) return local;
+
+    // 2. Query Firestore if online
+    if (!isDemoMode() && db) {
+      try {
+        const snap = await getDocs(collection(db, 'santri'));
+        if (!snap.empty) {
+          const remoteList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setSantriList(remoteList);
+          const santriMatch = remoteList.filter(s => s.parentToken && s.parentToken.toLowerCase() === cleanToken.toLowerCase());
+          if (santriMatch.length > 0) {
+            const first = santriMatch[0];
+            return {
+              type: 'wali',
+              role: 'wali',
+              id: first.parentToken,
+              name: first.parentName,
+              title: `Wali Santri dari ${santriMatch.map(s => `${s.name} (${s.nis})`).join(' & ')}`,
+              token: first.parentToken,
+              pin: first.pin || '1234',
+              avatar: first.avatar,
+              phone: first.parentPhone || '',
+              childrenCount: santriMatch.length,
+              children: santriMatch,
+              bindingLockCode: first.bindingLockCode || `BIND-ISB-${first.parentToken.toUpperCase()}`,
+              bindingStatus: first.bindingStatus || (first.fingerprintStatus === 'APPROVED' ? 'LOCKED' : 'PENDING_APPROVAL'),
+              isLocked: first.isLocked ?? (first.fingerprintStatus === 'APPROVED'),
+              fingerprintCode: first.fingerprintCode || null,
+              fingerprintStatus: first.fingerprintStatus || 'NOT_REGISTERED',
+              fingerprintRegisteredAt: first.fingerprintRegisteredAt || null,
+              fingerprintApprovedAt: first.fingerprintApprovedAt || null
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('Async token lookup error:', err);
+      }
+    }
+    return null;
+  }, [resolveTargetFromToken]);
 
   // LOGIN VIA PIN
   const loginWithPin = useCallback((targetAccount, inputPin) => {
@@ -574,7 +635,7 @@ export function AppProvider({ children }) {
   }, [broadcastState, showToast]);
 
   // WALI SANTRI: Registrasi & Pembuatan Magic Link Mandiri (Multi-Anak)
-  const registerWaliSantri = useCallback(({ parentName, parentPhone, childrenList }) => {
+  const registerWaliSantri = useCallback(async ({ parentName, parentPhone, childrenList }) => {
     const cleanPhone = formatPhoneNumber(parentPhone);
     const trimmedParentName = (parentName || '').trim();
 
@@ -629,6 +690,7 @@ export function AppProvider({ children }) {
     const bindingLockCode = `BIND-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     let updatedSantriList = [...santriList];
+    const affectedChildrenDocs = [];
 
     childrenList.forEach((child, idx) => {
       const childName = (child.name || '').trim();
@@ -650,7 +712,7 @@ export function AppProvider({ children }) {
 
       if (existingIdx >= 0) {
         // Update existing santri with parent info and new binding token
-        updatedSantriList[existingIdx] = {
+        const updatedDoc = {
           ...updatedSantriList[existingIdx],
           parentName: trimmedParentName,
           parentPhone: cleanPhone,
@@ -664,6 +726,8 @@ export function AppProvider({ children }) {
           fingerprintApprovedAt: null,
           fingerprintCode: null
         };
+        updatedSantriList[existingIdx] = updatedDoc;
+        affectedChildrenDocs.push(updatedDoc);
       } else {
         // Create new santri entry
         const cleanIsbNumber = childIsb || `${new Date().getFullYear()}${String(updatedSantriList.length + 1).padStart(4, '0')}`;
@@ -702,12 +766,25 @@ export function AppProvider({ children }) {
           avatar: `https://images.unsplash.com/photo-${1534528741775 + idx}?w=150&auto=format&fit=crop&q=80`
         };
         updatedSantriList.push(newSantri);
+        affectedChildrenDocs.push(newSantri);
       }
     });
 
     setSantriList(updatedSantriList);
     broadcastState({ santriList: updatedSantriList });
     playSound('success');
+
+    // SYNC DIRECTLY TO CLOUD FIRESTORE FOR MULTI-DEVICE ACCESSIBILITY
+    if (!isDemoMode() && db) {
+      try {
+        for (const docItem of affectedChildrenDocs) {
+          const docRef = doc(db, 'santri', docItem.id);
+          await setDoc(docRef, docItem, { merge: true });
+        }
+      } catch (err) {
+        console.error('Firestore registration sync error:', err);
+      }
+    }
 
     // WhatsApp blocks 'localhost' from being clickable.
     const isLocalhost = typeof window !== 'undefined' && (
@@ -735,15 +812,16 @@ export function AppProvider({ children }) {
   }, [santriList, pesantrenInfo, broadcastState]);
 
   // WALI SANTRI: Permohonan Pendaftaran Sidik Jari (Enrollment)
-  const requestFingerprintEnrollment = useCallback((parentToken, method = 'TOUCH_SCREEN_FINGER', customFingerCode = null) => {
+  const requestFingerprintEnrollment = useCallback(async (parentToken, method = 'TOUCH_SCREEN_FINGER', customFingerCode = null) => {
     const fingerprintCode = customFingerCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const nowIso = new Date().toISOString();
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
         return {
           ...s,
           fingerprintStatus: 'PENDING_APPROVAL',
           fingerprintCode,
-          fingerprintRegisteredAt: new Date().toISOString(),
+          fingerprintRegisteredAt: nowIso,
           fingerprintRegisteredMethod: method
         };
       }
@@ -753,11 +831,30 @@ export function AppProvider({ children }) {
     broadcastState({ santriList: updated });
     playSound('success');
     showToast('Sidik jari berhasil direkam! Menunggu persetujuan Admin Ma\'had.', 'info');
+
+    // Sync to Firestore
+    if (!isDemoMode() && db) {
+      try {
+        const matches = updated.filter(s => s.parentToken === parentToken);
+        for (const item of matches) {
+          await updateDoc(doc(db, 'santri', item.id), {
+            fingerprintStatus: 'PENDING_APPROVAL',
+            fingerprintCode,
+            fingerprintRegisteredAt: nowIso,
+            fingerprintRegisteredMethod: method
+          });
+        }
+      } catch (err) {
+        console.error('Error updating FP to Firestore:', err);
+      }
+    }
+
     return fingerprintCode;
   }, [santriList, broadcastState, showToast]);
 
   // SUPER ADMIN: Setujui (Approve) Biometrik & Kunci Data Permanen (Anti-Ganda)
-  const approveFingerprint = useCallback((parentToken) => {
+  const approveFingerprint = useCallback(async (parentToken) => {
+    const nowIso = new Date().toISOString();
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
         return {
@@ -765,7 +862,7 @@ export function AppProvider({ children }) {
           fingerprintStatus: 'APPROVED',
           bindingStatus: 'LOCKED',
           isLocked: true,
-          fingerprintApprovedAt: new Date().toISOString(),
+          fingerprintApprovedAt: nowIso,
           fingerprintApprovalNote: 'Disetujui dan Data Terkunci Resmi oleh Admin Ma\'had'
         };
       }
@@ -775,10 +872,28 @@ export function AppProvider({ children }) {
     broadcastState({ santriList: updated });
     playSound('success');
     showToast('Sidik jari disetujui & data wali-santri resmi dikunci!', 'success');
+
+    // Sync to Firestore
+    if (!isDemoMode() && db) {
+      try {
+        const matches = updated.filter(s => s.parentToken === parentToken);
+        for (const item of matches) {
+          await updateDoc(doc(db, 'santri', item.id), {
+            fingerprintStatus: 'APPROVED',
+            bindingStatus: 'LOCKED',
+            isLocked: true,
+            fingerprintApprovedAt: nowIso,
+            fingerprintApprovalNote: 'Disetujui dan Data Terkunci Resmi oleh Admin Ma\'had'
+          });
+        }
+      } catch (err) {
+        console.error('Error approving FP on Firestore:', err);
+      }
+    }
   }, [santriList, broadcastState, showToast]);
 
   // SUPER ADMIN: Tolak (Reject) Biometrik Wali Santri
-  const rejectFingerprint = useCallback((parentToken, reason = 'Data identitas tidak sesuai') => {
+  const rejectFingerprint = useCallback(async (parentToken, reason = 'Data identitas tidak sesuai') => {
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
         return {
@@ -793,10 +908,25 @@ export function AppProvider({ children }) {
     broadcastState({ santriList: updated });
     playSound('beep');
     showToast('Pendaftaran biometrik ditolak.', 'error');
+
+    // Sync to Firestore
+    if (!isDemoMode() && db) {
+      try {
+        const matches = updated.filter(s => s.parentToken === parentToken);
+        for (const item of matches) {
+          await updateDoc(doc(db, 'santri', item.id), {
+            fingerprintStatus: 'REJECTED',
+            fingerprintApprovalNote: reason
+          });
+        }
+      } catch (err) {
+        console.error('Error rejecting FP on Firestore:', err);
+      }
+    }
   }, [santriList, broadcastState, showToast]);
 
   // SUPER ADMIN: Reset Biometrik Wali Santri
-  const resetFingerprint = useCallback((parentToken) => {
+  const resetFingerprint = useCallback(async (parentToken) => {
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
         return {
@@ -813,6 +943,23 @@ export function AppProvider({ children }) {
     broadcastState({ santriList: updated });
     playSound('beep');
     showToast('Status biometrik berhasil direset.', 'info');
+
+    // Sync to Firestore
+    if (!isDemoMode() && db) {
+      try {
+        const matches = updated.filter(s => s.parentToken === parentToken);
+        for (const item of matches) {
+          await updateDoc(doc(db, 'santri', item.id), {
+            fingerprintStatus: 'NOT_REGISTERED',
+            fingerprintRegisteredAt: null,
+            fingerprintApprovedAt: null,
+            fingerprintApprovalNote: null
+          });
+        }
+      } catch (err) {
+        console.error('Error resetting FP on Firestore:', err);
+      }
+    }
   }, [santriList, broadcastState, showToast]);
 
   // Spending Limit Verification
@@ -1255,6 +1402,7 @@ export function AppProvider({ children }) {
     setUrlToken,
     roleAccounts,
     resolveTargetFromToken,
+    resolveTargetFromTokenAsync,
     loginWithPin,
     loginWithBiometric,
     logout,

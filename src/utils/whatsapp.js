@@ -16,21 +16,24 @@ export function openWhatsAppDirect(phone, text) {
   const cleanPhone = formatPhoneNumber(phone);
   const encodedText = encodeURIComponent(text);
 
-  // whatsapp://send directly opens WhatsApp Desktop on PC or WhatsApp app on Mobile (No intermediate web page)
+  const waMeUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
   const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
   const webUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
-  const waMeUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
 
-  // Attempt to open the direct application protocol
+  // Attempt to open wa.me in a new tab/window safely
   try {
-    const a = document.createElement('a');
-    a.href = appUrl;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const opened = window.open(waMeUrl, '_blank', 'noopener,noreferrer');
+    if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+      const a = document.createElement('a');
+      a.href = waMeUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
   } catch (e) {
-    window.location.href = appUrl;
+    window.location.href = waMeUrl;
   }
 
   return { appUrl, webUrl, waMeUrl, cleanPhone };

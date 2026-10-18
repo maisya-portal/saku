@@ -759,8 +759,10 @@ export function AppProvider({ children }) {
     const cleanPhone = formatPhoneNumber(parentPhone);
     const trimmedParentName = (parentName || '').trim();
 
-    // 1. Anti-Duplikasi Nama & Nomor WhatsApp Wali Santri
-    const duplicateParent = santriList.find(s => {
+    // 1. Anti-Duplikasi Nama & Nomor WhatsApp Wali Santri (Ignore system placeholder docs)
+    const validSantriList = santriList.filter(s => s && s.id !== '_system_init' && !s.isSystemPlaceholder);
+
+    const duplicateParent = validSantriList.find(s => {
       const existingParentName = (s.parentName || '').trim().toLowerCase();
       const existingParentPhone = (s.parentPhone || '').replace(/\D/g, '');
       const targetPhoneClean = cleanPhone.replace(/\D/g, '');
@@ -783,14 +785,15 @@ export function AppProvider({ children }) {
       const childIsb = (child.isb || '').trim();
       if (!childName) return;
 
-      const existingChild = santriList.find(s => {
+      const existingChild = validSantriList.find(s => {
         const sNis = (s.nis || '').toLowerCase();
         const sBarcode = (s.barcode || '').toLowerCase();
         const sCleanNis = sNis.replace(/[^0-9]/g, '');
         const targetCleanIsb = childIsb.toLowerCase().replace(/[^0-9]/g, '');
 
-        const matchIsb = (targetCleanIsb && (sNis === childIsb.toLowerCase() || sBarcode === childIsb.toLowerCase() || sCleanNis === targetCleanIsb));
-        const matchName = s.name.trim().toLowerCase() === childName.toLowerCase();
+        const matchIsb = Boolean(targetCleanIsb && (sNis === childIsb.toLowerCase() || sBarcode === childIsb.toLowerCase() || sCleanNis === targetCleanIsb));
+        const sName = (s.name || '').trim().toLowerCase();
+        const matchName = Boolean(sName && sName === childName.toLowerCase());
         return matchIsb || matchName;
       });
 
@@ -819,15 +822,16 @@ export function AppProvider({ children }) {
 
       // Find if exists
       const existingIdx = updatedSantriList.findIndex(s => {
+        if (!s || s.id === '_system_init' || s.isSystemPlaceholder) return false;
         const sNis = (s.nis || '').toLowerCase();
         const sBarcode = (s.barcode || '').toLowerCase();
         const sCleanNis = sNis.replace(/[^0-9]/g, '');
         const targetCleanIsb = childIsb.toLowerCase().replace(/[^0-9]/g, '');
 
-        return (
-          (targetCleanIsb && (sNis === childIsb.toLowerCase() || sBarcode === childIsb.toLowerCase() || sCleanNis === targetCleanIsb)) ||
-          s.name.trim().toLowerCase() === childName.toLowerCase()
-        );
+        const matchIsb = Boolean(targetCleanIsb && (sNis === childIsb.toLowerCase() || sBarcode === childIsb.toLowerCase() || sCleanNis === targetCleanIsb));
+        const sName = (s.name || '').trim().toLowerCase();
+        const matchName = Boolean(sName && sName === childName.toLowerCase());
+        return matchIsb || matchName;
       });
 
       if (existingIdx >= 0) {

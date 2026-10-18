@@ -181,13 +181,16 @@ export default function RoleAdminBendahara() {
     });
   };
 
-  // Filtered Santri
-  const filteredSantri = santriList.filter(s => 
-    s.name.toLowerCase().includes(santriSearch.toLowerCase()) ||
-    s.nis.includes(santriSearch) ||
-    s.class.toLowerCase().includes(santriSearch.toLowerCase()) ||
-    s.parentName.toLowerCase().includes(santriSearch.toLowerCase())
-  );
+  const filteredSantri = santriList.filter(s => {
+    if (!s) return false;
+    const term = (santriSearch || '').toLowerCase();
+    return (
+      (s.name || '').toLowerCase().includes(term) ||
+      (s.nis || '').includes(term) ||
+      (s.class || '').toLowerCase().includes(term) ||
+      (s.parentName || '').toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">

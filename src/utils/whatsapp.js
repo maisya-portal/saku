@@ -20,7 +20,22 @@ export function openWhatsAppDirect(phone, text) {
   const appUrl = `whatsapp://send?phone=${cleanPhone}&text=${encodedText}`;
   const webUrl = `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodedText}`;
 
-  // Attempt to open wa.me in a new tab/window safely
+  // Check if running in standalone PWA or installed Chrome app
+  const isStandalone = typeof window !== 'undefined' && (
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || 
+    window.navigator.standalone === true
+  );
+
+  // Auto copy text as safety backup
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      navigator.clipboard.writeText(text);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  // Attempt to open wa.me in a new tab/window safely without blanking the PWA window
   try {
     const opened = window.open(waMeUrl, '_blank', 'noopener,noreferrer');
     if (!opened || opened.closed || typeof opened.closed === 'undefined') {
@@ -30,10 +45,18 @@ export function openWhatsAppDirect(phone, text) {
       a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
+      setTimeout(() => {
+        try {
+          document.body.removeChild(a);
+        } catch (e) {
+          // ignore
+        }
+      }, 300);
     }
   } catch (e) {
-    window.location.href = waMeUrl;
+    if (!isStandalone) {
+      window.location.href = waMeUrl;
+    }
   }
 
   return { appUrl, webUrl, waMeUrl, cleanPhone };

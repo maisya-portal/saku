@@ -123,7 +123,7 @@ const purgeLegacyDummyData = () => {
           const cleaned = parsed.filter(s => 
             !['santri-001', 'santri-002', 'santri-003', 'santri-004'].includes(s?.id) &&
             !['202401001', '202401002', '202401003', '202401004'].includes(s?.nis) &&
-            !['muhammad al-fatih', 'abdullah bin umar', 'hamzah bin hendra', 'zaid bin tsabit'].includes(s?.name?.trim().toLowerCase())
+            !['muhammad al-fatih', 'abdullah bin umar', 'hamzah bin hendra', 'zaid bin tsabit'].includes((s?.name || '').trim().toLowerCase())
           );
           localStorage.setItem('maisya_santri', JSON.stringify(cleaned));
         }
@@ -199,7 +199,7 @@ export function AppProvider({ children }) {
         ? parsed.filter(s => 
             !['santri-001', 'santri-002', 'santri-003', 'santri-004'].includes(s?.id) &&
             !['202401001', '202401002', '202401003', '202401004'].includes(s?.nis) &&
-            !['muhammad al-fatih', 'abdullah bin umar', 'hamzah bin hendra', 'zaid bin tsabit'].includes(s?.name?.trim().toLowerCase())
+            !['muhammad al-fatih', 'abdullah bin umar', 'hamzah bin hendra', 'zaid bin tsabit'].includes((s?.name || '').trim().toLowerCase())
           )
         : [];
     } catch {

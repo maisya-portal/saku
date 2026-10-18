@@ -21,12 +21,15 @@ export default function RfidBarcodeScanner({ onSelectSantri, selectedSantri = nu
       if (!val) return;
 
       // Find by RFID, Barcode, or NIS
-      const found = santriList.find(s => 
-        s.rfidTag.toUpperCase() === val || 
-        s.barcode.toUpperCase() === val || 
-        s.nis === val ||
-        s.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const found = santriList.find(s => {
+        if (!s) return false;
+        return (
+          (s.rfidTag || '').toUpperCase() === val || 
+          (s.barcode || '').toUpperCase() === val || 
+          (s.nis || '') === val ||
+          (s.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
 
       if (found) {
         playSound('beep');
@@ -39,13 +42,14 @@ export default function RfidBarcodeScanner({ onSelectSantri, selectedSantri = nu
   };
 
   const filteredSantri = santriList.filter(s => {
-    const term = searchTerm.toLowerCase();
+    if (!s) return false;
+    const term = (searchTerm || '').toLowerCase();
     return (
-      s.name.toLowerCase().includes(term) ||
-      s.nis.toLowerCase().includes(term) ||
-      s.class.toLowerCase().includes(term) ||
-      s.rfidTag.toLowerCase().includes(term) ||
-      s.barcode.toLowerCase().includes(term)
+      (s.name || '').toLowerCase().includes(term) ||
+      (s.nis || '').toLowerCase().includes(term) ||
+      (s.class || '').toLowerCase().includes(term) ||
+      (s.rfidTag || '').toLowerCase().includes(term) ||
+      (s.barcode || '').toLowerCase().includes(term)
     );
   });
 

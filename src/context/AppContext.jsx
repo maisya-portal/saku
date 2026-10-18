@@ -109,6 +109,72 @@ export function formatDateTime(isoString) {
   }
 }
 
+// Automatically clean any legacy dummy data from localStorage so browsers are freshly reset
+const purgeLegacyDummyData = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const isCleaned = localStorage.getItem('maisya_purged_dummy_clean_v5');
+    if (!isCleaned) {
+      // Clean santri
+      const rawSantri = localStorage.getItem('maisya_santri');
+      if (rawSantri) {
+        const parsed = JSON.parse(rawSantri);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(s => 
+            !['santri-001', 'santri-002', 'santri-003', 'santri-004'].includes(s?.id) &&
+            !['202401001', '202401002', '202401003', '202401004'].includes(s?.nis) &&
+            !['muhammad al-fatih', 'abdullah bin umar', 'hamzah bin hendra', 'zaid bin tsabit'].includes(s?.name?.trim().toLowerCase())
+          );
+          localStorage.setItem('maisya_santri', JSON.stringify(cleaned));
+        }
+      }
+      // Clean transactions
+      const rawTrx = localStorage.getItem('maisya_transactions');
+      if (rawTrx) {
+        const parsed = JSON.parse(rawTrx);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(t => 
+            !t?.id?.startsWith('trx-10') && 
+            !['santri-001', 'santri-002', 'santri-003', 'santri-004'].includes(t?.santriId)
+          );
+          localStorage.setItem('maisya_transactions', JSON.stringify(cleaned));
+        }
+      }
+      // Clean topups
+      const rawTopups = localStorage.getItem('maisya_topups');
+      if (rawTopups) {
+        const parsed = JSON.parse(rawTopups);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(t => 
+            !t?.id?.startsWith('topup-00') && 
+            !['santri-001', 'santri-002'].includes(t?.santriId)
+          );
+          localStorage.setItem('maisya_topups', JSON.stringify(cleaned));
+        }
+      }
+      // Clean SPP
+      const rawSpp = localStorage.getItem('maisya_spp');
+      if (rawSpp) {
+        const parsed = JSON.parse(rawSpp);
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter(s => 
+            !s?.id?.startsWith('spp-00') && 
+            !s?.id?.startsWith('ekstra-00') &&
+            !['202401001', '202401002', '202401003', '202401004'].includes(s?.santriNis)
+          );
+          localStorage.setItem('maisya_spp', JSON.stringify(cleaned));
+        }
+      }
+      // Ensure demo mode is turned OFF
+      localStorage.removeItem('maisya_saku_use_demo_mode');
+      localStorage.setItem('maisya_purged_dummy_clean_v5', 'true');
+    }
+  } catch (err) {
+    console.debug('Dummy purge error:', err);
+  }
+};
+purgeLegacyDummyData();
+
 export function AppProvider({ children }) {
   // Read token from URL query or hash
   const extractTokenFromUrl = () => {
@@ -126,7 +192,19 @@ export function AppProvider({ children }) {
   // Santri List
   const [santriList, setSantriList] = useState(() => {
     const saved = localStorage.getItem('maisya_santri');
-    return saved ? JSON.parse(saved) : INITIAL_SANTRI;
+    if (!saved) return INITIAL_SANTRI;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed)
+        ? parsed.filter(s => 
+            !['santri-001', 'santri-002', 'santri-003', 'santri-004'].includes(s?.id) &&
+            !['202401001', '202401002', '202401003', '202401004'].includes(s?.nis) &&
+            !['muhammad al-fatih', 'abdullah bin umar', 'hamzah bin hendra', 'zaid bin tsabit'].includes(s?.name?.trim().toLowerCase())
+          )
+        : [];
+    } catch {
+      return [];
+    }
   });
 
   // Theme state: 'light' | 'dark'
@@ -219,17 +297,45 @@ export function AppProvider({ children }) {
 
   const [sppBills, setSppBills] = useState(() => {
     const saved = localStorage.getItem('maisya_spp');
-    return saved ? JSON.parse(saved) : INITIAL_SPP_TAGIHAN;
+    if (!saved) return INITIAL_SPP_TAGIHAN;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed)
+        ? parsed.filter(s => 
+            !s?.id?.startsWith('spp-00') && 
+            !s?.id?.startsWith('ekstra-00') &&
+            !['202401001', '202401002', '202401003', '202401004'].includes(s?.santriNis)
+          )
+        : [];
+    } catch {
+      return [];
+    }
   });
 
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('maisya_transactions');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+    if (!saved) return INITIAL_TRANSACTIONS;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed)
+        ? parsed.filter(t => !t?.id?.startsWith('trx-10') && !['santri-001', 'santri-002', 'santri-003', 'santri-004'].includes(t?.santriId))
+        : [];
+    } catch {
+      return [];
+    }
   });
 
   const [topupRequests, setTopupRequests] = useState(() => {
     const saved = localStorage.getItem('maisya_topups');
-    return saved ? JSON.parse(saved) : INITIAL_TOPUP_REQUESTS;
+    if (!saved) return INITIAL_TOPUP_REQUESTS;
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed)
+        ? parsed.filter(t => !t?.id?.startsWith('topup-00') && !['santri-001', 'santri-002'].includes(t?.santriId))
+        : [];
+    } catch {
+      return [];
+    }
   });
 
   // Selected child for Wali Santri view
@@ -345,37 +451,48 @@ export function AppProvider({ children }) {
     if (isDemoMode() || !db) return;
 
     try {
-      const unsubSantri = onSnapshot(collection(db, 'santri'), async (snapshot) => {
-        if (!snapshot.empty) {
-          setSantriList(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        } else {
-          // If Firestore santri collection is empty, seed INITIAL_SANTRI so all devices have shared base data
-          try {
-            for (const s of INITIAL_SANTRI) {
-              await setDoc(doc(db, 'santri', s.id), s);
-            }
-          } catch (e) {
-            console.debug('Initial santri seed to Firestore error:', e);
-          }
-        }
+      const unsubSantri = onSnapshot(collection(db, 'santri'), (snapshot) => {
+        const liveList = snapshot.docs
+          .filter(d => d.id !== '_system_init' && !d.data()?.isSystemPlaceholder)
+          .map(d => ({ id: d.id, ...d.data() }));
+        setSantriList(liveList);
+        try {
+          localStorage.setItem('maisya_santri', JSON.stringify(liveList));
+        } catch (e) { /* ignore */ }
       });
 
       const unsubTrx = onSnapshot(query(collection(db, 'transactions'), orderBy('timestamp', 'desc')), (snapshot) => {
-        if (!snapshot.empty) {
-          setTransactions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        }
+        const liveTrx = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setTransactions(liveTrx);
+        try {
+          localStorage.setItem('maisya_transactions', JSON.stringify(liveTrx));
+        } catch (e) { /* ignore */ }
       });
 
       const unsubTopup = onSnapshot(collection(db, 'topups'), (snapshot) => {
-        if (!snapshot.empty) {
-          setTopupRequests(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-        }
+        const liveTopups = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setTopupRequests(liveTopups);
+        try {
+          localStorage.setItem('maisya_topups', JSON.stringify(liveTopups));
+        } catch (e) { /* ignore */ }
       });
 
       const unsubProd = onSnapshot(collection(db, 'products'), (snapshot) => {
         if (!snapshot.empty) {
-          setProducts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+          const liveProd = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          setProducts(liveProd);
+          try {
+            localStorage.setItem('maisya_products', JSON.stringify(liveProd));
+          } catch (e) { /* ignore */ }
         }
+      });
+
+      const unsubSpp = onSnapshot(collection(db, 'spp'), (snapshot) => {
+        const liveSpp = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setSppBills(liveSpp);
+        try {
+          localStorage.setItem('maisya_spp', JSON.stringify(liveSpp));
+        } catch (e) { /* ignore */ }
       });
 
       return () => {
@@ -383,6 +500,7 @@ export function AppProvider({ children }) {
         unsubTrx();
         unsubTopup();
         unsubProd();
+        unsubSpp();
       };
     } catch (err) {
       console.warn('Firestore subscription warning:', err);
@@ -473,7 +591,9 @@ export function AppProvider({ children }) {
       try {
         const snap = await getDocs(collection(db, 'santri'));
         if (!snap.empty) {
-          const remoteList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          const remoteList = snap.docs
+            .filter(d => d.id !== '_system_init' && !d.data()?.isSystemPlaceholder)
+            .map(d => ({ id: d.id, ...d.data() }));
           setSantriList(remoteList);
           const santriMatch = remoteList.filter(s => s.parentToken && s.parentToken.toLowerCase() === cleanToken.toLowerCase());
           if (santriMatch.length > 0) {
@@ -586,7 +706,7 @@ export function AppProvider({ children }) {
 
     if (!isDemoMode() && db) {
       try {
-        await addDoc(collection(db, 'santri'), newSantri);
+        await setDoc(doc(db, 'santri', newSantri.id), newSantri);
       } catch (err) {
         console.error('Error adding santri to firestore:', err);
       }

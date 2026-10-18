@@ -186,7 +186,25 @@ export function AppProvider({ children }) {
   // Role Accounts (Managed exclusively by Super Admin)
   const [roleAccounts, setRoleAccounts] = useState(() => {
     const saved = localStorage.getItem('maisya_role_accounts');
-    return saved ? JSON.parse(saved) : INITIAL_ROLE_ACCOUNTS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_ROLE_ACCOUNTS;
+    const adminPass = localStorage.getItem('maisya_admin_password') || 'iftahadmin87';
+    return (Array.isArray(parsed) ? parsed : INITIAL_ROLE_ACCOUNTS).map(r => {
+      if (r.role === 'admin') {
+        return {
+          ...r,
+          pin: adminPass,
+          password: adminPass,
+          biometricRegistered: false,
+          biometricStatus: 'PASSWORD_ONLY',
+          phone: r.phone || '082119836050'
+        };
+      }
+      return {
+        ...r,
+        biometricStatus: r.biometricStatus || 'APPROVED',
+        fingerprintCode: r.fingerprintCode || `FP-STAFF-${r.role.toUpperCase()}-01`
+      };
+    });
   });
 
   // Santri List
@@ -981,8 +999,10 @@ export function AppProvider({ children }) {
     const nowIso = new Date().toISOString();
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
+        const fpCode = s.fingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
         return {
           ...s,
+          fingerprintCode: fpCode,
           fingerprintStatus: 'APPROVED',
           bindingStatus: 'LOCKED',
           isLocked: true,
@@ -995,7 +1015,7 @@ export function AppProvider({ children }) {
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('success');
-    showToast('Sidik jari disetujui & data wali-santri resmi dikunci!', 'success');
+    showToast('Sidik jari disetujui & data wali-santri resmi aktif!', 'success');
 
     // Sync to Firestore
     if (!isDemoMode() && db) {
@@ -1003,6 +1023,7 @@ export function AppProvider({ children }) {
         const matches = updated.filter(s => s.parentToken === parentToken);
         for (const item of matches) {
           await updateDoc(doc(db, 'santri', item.id), {
+            fingerprintCode: item.fingerprintCode,
             fingerprintStatus: 'APPROVED',
             bindingStatus: 'LOCKED',
             isLocked: true,
@@ -1012,6 +1033,48 @@ export function AppProvider({ children }) {
         }
       } catch (err) {
         console.error('Error approving FP on Firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Setujui Semua Permohonan Biometrik Wali Santri Sekaligus (Batch)
+  const approveAllPendingFingerprints = useCallback(async () => {
+    const nowIso = new Date().toISOString();
+    const updated = santriList.map(s => {
+      if (s.parentToken && s.fingerprintStatus !== 'APPROVED') {
+        const fpCode = s.fingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        return {
+          ...s,
+          fingerprintCode: fpCode,
+          fingerprintStatus: 'APPROVED',
+          bindingStatus: 'LOCKED',
+          isLocked: true,
+          fingerprintApprovedAt: nowIso,
+          fingerprintApprovalNote: 'Disetujui Masal oleh Admin Ma\'had'
+        };
+      }
+      return s;
+    });
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('success');
+    showToast('Seluruh permohonan biometrik wali santri berhasil disetujui!', 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        const matches = updated.filter(s => s.parentToken && s.fingerprintStatus === 'APPROVED');
+        for (const item of matches) {
+          await updateDoc(doc(db, 'santri', item.id), {
+            fingerprintCode: item.fingerprintCode,
+            fingerprintStatus: 'APPROVED',
+            bindingStatus: 'LOCKED',
+            isLocked: true,
+            fingerprintApprovedAt: nowIso,
+            fingerprintApprovalNote: 'Disetujui Masal oleh Admin Ma\'had'
+          });
+        }
+      } catch (err) {
+        console.error('Error batch approving FP:', err);
       }
     }
   }, [santriList, broadcastState, showToast]);
@@ -1085,6 +1148,129 @@ export function AppProvider({ children }) {
       }
     }
   }, [santriList, broadcastState, showToast]);
+
+  // PETUGAS: Pendaftaran Biometrik Petugas Baru
+  const registerPetugasBiometric = useCallback(async ({ name, role, phone, fingerprintCode }) => {
+    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+    const token = `staff-${role}-${Date.now().toString(36).slice(-4)}`;
+    const ROLE_TITLES = {
+      kantin: 'Petugas Kasir Kantin Santri',
+      laundry: 'Petugas Laundry Pesantren',
+      wartel: 'Operator Wartel Santri',
+      spp: 'Kasir SPP & Syahriyah',
+      kiosk: 'Petugas Kiosk Anjungan Mandiri'
+    };
+    const newStaff = {
+      id: `role-${role}-${Date.now().toString(36).slice(-4)}`,
+      role,
+      name,
+      title: ROLE_TITLES[role] || `Petugas ${role}`,
+      token,
+      pin: '123456',
+      phone: cleanPhone,
+      fingerprintCode: fingerprintCode || `FP-STAFF-${role.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`,
+      biometricStatus: 'PENDING_APPROVAL',
+      biometricRegistered: true,
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      registeredAt: new Date().toISOString()
+    };
+    const updated = [...roleAccounts, newStaff];
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    playSound('success');
+    showToast(`Pendaftaran biometrik ${name} diajukan! Menunggu persetujuan Super Admin.`, 'success');
+    return newStaff;
+  }, [roleAccounts, broadcastState, showToast]);
+
+  // SUPER ADMIN: Setujui Biometrik Petugas
+  const approveStaffBiometric = useCallback(async (staffTokenOrId) => {
+    const nowIso = new Date().toISOString();
+    const updated = roleAccounts.map(r => {
+      if (r.token === staffTokenOrId || r.id === staffTokenOrId) {
+        return {
+          ...r,
+          biometricStatus: 'APPROVED',
+          biometricRegistered: true,
+          approvedAt: nowIso
+        };
+      }
+      return r;
+    });
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    playSound('success');
+    showToast('Biometrik petugas berhasil disetujui & aktif!', 'success');
+  }, [roleAccounts, broadcastState, showToast]);
+
+  // SUPER ADMIN: Tolak / Reset Biometrik Petugas
+  const rejectStaffBiometric = useCallback(async (staffTokenOrId, reason = 'Data tidak sesuai') => {
+    const updated = roleAccounts.map(r => {
+      if (r.token === staffTokenOrId || r.id === staffTokenOrId) {
+        return {
+          ...r,
+          biometricStatus: 'REJECTED',
+          rejectionReason: reason
+        };
+      }
+      return r;
+    });
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    playSound('beep');
+    showToast('Permohonan biometrik petugas ditolak.', 'info');
+  }, [roleAccounts, broadcastState, showToast]);
+
+  // GANTI GAMBAR AVATAR AKUN (PETUGAS, WALI SANTRI & SANTRI)
+  const updateSessionAvatar = useCallback(async (newAvatarUrl) => {
+    if (!authSession) return;
+    const updatedSession = { ...authSession, avatar: newAvatarUrl };
+    setAuthSession(updatedSession);
+    localStorage.setItem('maisya_session', JSON.stringify(updatedSession));
+
+    if (authSession.type === 'role') {
+      const updatedRoles = roleAccounts.map(r => 
+        (r.id === authSession.id || r.token === authSession.token) 
+          ? { ...r, avatar: newAvatarUrl } 
+          : r
+      );
+      setRoleAccounts(updatedRoles);
+      broadcastState({ roleAccounts: updatedRoles });
+    } else if (authSession.type === 'wali') {
+      const updatedSantri = santriList.map(s => 
+        s.parentToken === authSession.token 
+          ? { ...s, avatar: newAvatarUrl } 
+          : s
+      );
+      setSantriList(updatedSantri);
+      broadcastState({ santriList: updatedSantri });
+      if (!isDemoMode() && db) {
+        const matches = updatedSantri.filter(s => s.parentToken === authSession.token);
+        for (const item of matches) {
+          updateDoc(doc(db, 'santri', item.id), { avatar: newAvatarUrl }).catch(() => {});
+        }
+      }
+    }
+    playSound('success');
+    showToast('Foto avatar berhasil diperbarui!', 'success');
+  }, [authSession, roleAccounts, santriList, broadcastState, showToast]);
+
+  // UPDATE PASSWORD SUPER ADMIN (DEFAULT: iftahadmin87)
+  const updateAdminPassword = useCallback((newPassword) => {
+    if (!newPassword || newPassword.length < 4) {
+      showToast('Password minimal 4 karakter.', 'error');
+      return;
+    }
+    const updated = roleAccounts.map(r => 
+      r.role === 'admin' 
+        ? { ...r, pin: newPassword, password: newPassword } 
+        : r
+    );
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    localStorage.setItem('maisya_admin_password', newPassword);
+    playSound('success');
+    showToast('Password Super Admin berhasil diperbarui!', 'success');
+  }, [roleAccounts, broadcastState, showToast]);
 
   // Spending Limit Verification
   const checkSpendingLimit = useCallback((santri, amountToSpend) => {
@@ -1570,8 +1756,18 @@ export function AppProvider({ children }) {
     registerWaliSantri,
     requestFingerprintEnrollment,
     approveFingerprint,
+    approveAllPendingFingerprints,
     rejectFingerprint,
     resetFingerprint,
+
+    // Petugas & Staff Biometrics
+    registerPetugasBiometric,
+    approveStaffBiometric,
+    rejectStaffBiometric,
+    updateAdminPassword,
+
+    // Avatar Editor
+    updateSessionAvatar,
 
     // Theme (Light / Dark)
     theme,

@@ -242,9 +242,11 @@ export const INITIAL_ROLE_ACCOUNTS = [
     name: "Super Admin Keuangan Ma'had",
     title: "Administrator & Bendahara Utama",
     token: "admin-isb-2026",
-    pin: "123456",
-    phone: "081234567890",
-    biometricRegistered: true,
+    pin: "iftahadmin87",
+    password: "iftahadmin87",
+    phone: "082119836050",
+    biometricRegistered: false,
+    biometricStatus: "PASSWORD_ONLY",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150"
   },
   {
@@ -256,6 +258,8 @@ export const INITIAL_ROLE_ACCOUNTS = [
     pin: "112233",
     phone: "081234567894",
     biometricRegistered: true,
+    biometricStatus: "APPROVED",
+    fingerprintCode: "FP-STAFF-KANTIN-01",
     avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150"
   },
   {
@@ -267,6 +271,8 @@ export const INITIAL_ROLE_ACCOUNTS = [
     pin: "223344",
     phone: "081234567895",
     biometricRegistered: true,
+    biometricStatus: "APPROVED",
+    fingerprintCode: "FP-STAFF-LAUNDRY-01",
     avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150"
   },
   {
@@ -278,6 +284,8 @@ export const INITIAL_ROLE_ACCOUNTS = [
     pin: "334455",
     phone: "081234567896",
     biometricRegistered: true,
+    biometricStatus: "APPROVED",
+    fingerprintCode: "FP-STAFF-WARTEL-01",
     avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150"
   },
   {
@@ -289,6 +297,8 @@ export const INITIAL_ROLE_ACCOUNTS = [
     pin: "445566",
     phone: "081234567897",
     biometricRegistered: true,
+    biometricStatus: "APPROVED",
+    fingerprintCode: "FP-STAFF-SPP-01",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
   },
   {
@@ -299,7 +309,9 @@ export const INITIAL_ROLE_ACCOUNTS = [
     token: "kiosk-isb-2026",
     pin: "000000",
     phone: "",
-    biometricRegistered: false,
+    biometricRegistered: true,
+    biometricStatus: "APPROVED",
+    fingerprintCode: "FP-STAFF-KIOSK-01",
     avatar: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=150"
   }
 ];

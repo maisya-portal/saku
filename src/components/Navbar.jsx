@@ -11,14 +11,17 @@ import {
   Sparkles,
   ChevronRight,
   Sun,
-  Moon
+  Moon,
+  Camera
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import AvatarEditorModal from './AvatarEditorModal';
 
 export default function Navbar() {
-  const { authSession, logout, toast, hideToast, pesantrenInfo, theme, toggleTheme } = useApp();
+  const { authSession, logout, toast, hideToast, pesantrenInfo, theme, toggleTheme, updateSessionAvatar } = useApp();
   const [pwaPrompt, setPwaPrompt] = useState(null);
   const [showTopBanner, setShowTopBanner] = useState(true);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // Capture PWA install event
   useEffect(() => {
@@ -141,15 +144,37 @@ export default function Navbar() {
               )}
             </button>
 
-            {/* Active User Session Pill (Scalev Avatar Pill Style) */}
+            {/* Active User Session Pill (Scalev Avatar Pill Style with Avatar Editor) */}
             {authSession && (
-              <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 p-1.5 pl-3 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
-                {/* Scalev-like MP Badge */}
-                <div className="w-7 h-7 rounded-xl bg-sky-500 text-white font-black text-[11px] flex items-center justify-center shadow-xs shrink-0">
-                  {authSession.name ? authSession.name.slice(0, 2).toUpperCase() : 'MP'}
-                </div>
+              <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 p-1.5 pl-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
+                {/* Clickable Avatar with Camera icon */}
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarModalOpen(true)}
+                  className="relative group cursor-pointer focus:outline-none"
+                  title="Klik untuk ganti foto avatar akun"
+                >
+                  {authSession.avatar ? (
+                    <img
+                      src={authSession.avatar}
+                      alt={authSession.name}
+                      className="w-8 h-8 rounded-xl object-cover border border-sky-400 dark:border-sky-500 shadow-xs"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-xl bg-sky-500 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
+                      {authSession.name ? authSession.name.slice(0, 2).toUpperCase() : 'MP'}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900/80 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all border border-white">
+                    <Camera className="w-2.5 h-2.5" />
+                  </span>
+                </button>
 
-                <div className="text-left hidden sm:block">
+                <div 
+                  className="text-left hidden sm:block cursor-pointer"
+                  onClick={() => setIsAvatarModalOpen(true)}
+                  title="Klik untuk ganti foto avatar akun"
+                >
                   <div className="text-xs font-bold text-slate-900 dark:text-white truncate max-w-[130px] leading-tight transition-colors">
                     {authSession.name}
                   </div>
@@ -172,6 +197,17 @@ export default function Navbar() {
           </div>
         </div>
       </header>
+
+      {/* Avatar Editor Modal */}
+      {authSession && (
+        <AvatarEditorModal
+          isOpen={isAvatarModalOpen}
+          onClose={() => setIsAvatarModalOpen(false)}
+          currentAvatar={authSession.avatar}
+          onSaveAvatar={updateSessionAvatar}
+          title={`Ganti Avatar Akun: ${authSession.name}`}
+        />
+      )}
     </>
   );
 }

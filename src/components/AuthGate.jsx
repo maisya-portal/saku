@@ -19,7 +19,9 @@ import {
   Smartphone,
   Phone,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useApp, playSound } from '../context/AppContext';
 import BiometricTouchPad from './BiometricTouchPad';
@@ -37,6 +39,7 @@ export default function AuthGate() {
     loginWithBiometric, 
     requestFingerprintEnrollment,
     approveFingerprint,
+    approveStaffBiometric,
     resetFingerprint,
     pesantrenInfo,
     santriList,
@@ -50,6 +53,8 @@ export default function AuthGate() {
   const [isVerifyingToken, setIsVerifyingToken] = useState(false);
   const [authMode, setAuthMode] = useState('biometric'); // Focus strictly on biometric!
   const [inputPin, setInputPin] = useState('');
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [failedFingerprintAttempts, setFailedFingerprintAttempts] = useState(0);
   const [waModalOpen, setWaModalOpen] = useState(false);
@@ -93,10 +98,22 @@ export default function AuthGate() {
       if (local) {
         setTargetAccount(local);
         setInputPin('');
+        setAdminPasswordInput('');
         setErrorMsg('');
         setFailedFingerprintAttempts(0);
-        setAuthMode('biometric'); // Strict biometric default
         window.location.hash = `token=${clean}`;
+
+        // AUTO-LOGIN: Jika wali santri sudah terverifikasi biometriknya, langsung masuk ke aplikasi!
+        if (local.type === 'wali' && local.fingerprintStatus === 'APPROVED') {
+          loginWithBiometric(local, 'VERIFIED_LINK_DIRECT_LOGIN');
+          return;
+        }
+
+        if (local.role === 'admin') {
+          setAuthMode('password'); // Admin khusus password tanpa biometrik
+        } else {
+          setAuthMode('biometric');
+        }
       } else {
         // Query remote Firestore if not found locally yet
         setIsVerifyingToken(true);
@@ -106,11 +123,23 @@ export default function AuthGate() {
               setIsVerifyingToken(false);
               setTargetAccount(remote);
               setInputPin('');
+              setAdminPasswordInput('');
               setErrorMsg('');
               setFailedFingerprintAttempts(0);
-              setAuthMode('biometric');
               if (remote) {
                 window.location.hash = `token=${clean}`;
+
+                // AUTO-LOGIN: Jika wali santri remote sudah disetujui, langsung masuk ke aplikasi!
+                if (remote.type === 'wali' && remote.fingerprintStatus === 'APPROVED') {
+                  loginWithBiometric(remote, 'VERIFIED_LINK_DIRECT_LOGIN');
+                  return;
+                }
+
+                if (remote.role === 'admin') {
+                  setAuthMode('password');
+                } else {
+                  setAuthMode('biometric');
+                }
               }
             }
           })
@@ -122,7 +151,29 @@ export default function AuthGate() {
       setTargetAccount(null);
     }
     return () => { isCancelled = true; };
-  }, [activeToken, resolveTargetFromToken, resolveTargetFromTokenAsync, santriList]);
+  }, [activeToken, resolveTargetFromToken, resolveTargetFromTokenAsync, santriList, loginWithBiometric]);
+
+  // SUPER ADMIN PASSWORD LOGIN (Default: iftahadmin87)
+  const handleAdminPasswordSubmit = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (!adminPasswordInput.trim()) {
+      setErrorMsg('Silakan masukkan password Super Admin.');
+      return;
+    }
+    const expected = targetAccount?.pin || targetAccount?.password || 'iftahadmin87';
+    if (adminPasswordInput.trim() === expected || adminPasswordInput.trim() === 'iftahadmin87') {
+      try {
+        loginWithPin(targetAccount, targetAccount.pin || 'iftahadmin87');
+        confetti({ particleCount: 75, spread: 65 });
+      } catch (err) {
+        setErrorMsg(err.message);
+      }
+    } else {
+      playSound('error');
+      setErrorMsg('Password Super Admin Salah! (Gunakan password default: iftahadmin87)');
+      setAdminPasswordInput('');
+    }
+  }, [adminPasswordInput, targetAccount, loginWithPin]);
 
   // PIN Login
   const attemptPinLogin = useCallback((pinToTest) => {
@@ -232,16 +283,22 @@ export default function AuthGate() {
   // Contact Admin via WhatsApp for quick approval (Link wa.me/6282119836050)
   const handleContactAdminWA = () => {
     const adminPhone = pesantrenInfo.whatsappAdmin || '6282119836050';
+    const isRole = targetAccount?.type === 'role';
     const childList = targetAccount?.children?.map(c => `${c.name} (${c.nis})`).join(', ') || targetAccount?.title || '';
-    const msg = 
-      `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\n` +
-      `Saya Wali Santri: *${targetAccount?.name || '-'}*\n` +
-      `Santri Terikat: *${childList}*\n` +
-      `Kode Gembok Database: *${targetAccount?.bindingLockCode || '-'}*\n` +
-      `Kode Sidik Jari: *${targetAccount?.fingerprintCode || '-'}*\n` +
-      `PIN Masuk Otomatis: *${targetAccount?.pin || '-'}*\n\n` +
-      `Telah berhasil merekam pendaftaran sidik jari biometrik pada sistem Maisya-Saku.\n` +
-      `Mohon dibantu verifikasi & persetujuannya agar tautan login sidik jari dapat aktif. Jazakumullahu khairan.`;
+    const msg = isRole
+      ? `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\n` +
+        `Saya Petugas: *${targetAccount?.name || '-'}* (${targetAccount?.title || '-'})\n` +
+        `Kode Sidik Jari: *${targetAccount?.fingerprintCode || '-'}*\n\n` +
+        `Telah melakukan pendaftaran biometrik petugas pada sistem Maisya-Saku.\n` +
+        `Mohon dibantu verifikasi & persetujuannya di Panel Super Admin. Jazakumullahu khairan.`
+      : `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\n` +
+        `Saya Wali Santri: *${targetAccount?.name || '-'}*\n` +
+        `Santri Terikat: *${childList}*\n` +
+        `Kode Gembok Database: *${targetAccount?.bindingLockCode || '-'}*\n` +
+        `Kode Sidik Jari: *${targetAccount?.fingerprintCode || '-'}*\n` +
+        `PIN Masuk Otomatis: *${targetAccount?.pin || '-'}*\n\n` +
+        `Telah berhasil merekam pendaftaran sidik jari biometrik pada sistem Maisya-Saku.\n` +
+        `Mohon dibantu verifikasi & persetujuannya agar tautan login sidik jari dapat aktif. Jazakumullahu khairan.`;
 
     setWaModalData({
       recipientName: "Admin Ma'had Imam Syafi'i Brebes",
@@ -524,7 +581,7 @@ export default function AuthGate() {
           )}
 
           {/* ========================================================= */}
-          {/* STATE 4: APPROVED OR STAFF ROLE (LOGIN SCREEN) */}
+          {/* STATE 4: APPROVED, STAFF ROLE, OR SUPER ADMIN LOGIN */}
           {/* ========================================================= */}
           {(!isWali || fpStatus === 'APPROVED') && (
             <>
@@ -536,153 +593,317 @@ export default function AuthGate() {
                 </div>
               )}
 
-              {/* Pure Biometric Login (PIN only revealed if fingerprint failed 3 times) */}
-
-              {/* FINGERPRINT MODE (MANDATORY & FOCUSED FOR WALI SANTRI) */}
-              {authMode === 'biometric' && (
-                <div className="space-y-4">
-                  <BiometricTouchPad
-                    santriName={targetAccount.name}
-                    title="Verifikasi Sidik Jari Masuk"
-                    subtitle="Tempelkan sidik jari pada sensor di bawah layar HP/tablet sesuai kode unik yang telah terverifikasi admin"
-                    expectedFingerprintCode={targetAccount.fingerprintCode}
-                    onVerified={handleBiometricSuccess}
-                  />
-
-                  {/* Failure simulator/test button if user has scanner trouble */}
-                  <div className="text-center pt-1">
-                    <button
-                      type="button"
-                      onClick={() => handleBiometricFailure('Sidik jari tidak cocok dengan data terdaftar')}
-                      className="text-[11px] text-slate-400 hover:text-rose-500 hover:underline transition-colors"
-                    >
-                      Kendala Sidik Jari? (Simulasi Gagal: {failedFingerprintAttempts}/3)
-                    </button>
+              {/* A. SUPER ADMIN LOGIN (PASSWORD ONLY - NO SENSOR BIOMETRIK) */}
+              {targetAccount.role === 'admin' ? (
+                <form onSubmit={handleAdminPasswordSubmit} className="space-y-4">
+                  <div className="text-center space-y-1 mb-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-xs">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Login Khusus Super Admin (Password Only)</span>
+                    </div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white pt-1">
+                      Bendahara & Super Admin Ma'had
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Super Admin tidak menggunakan sensor biometrik. Silakan ketik password akun Anda.
+                    </p>
                   </div>
 
-                  {/* EMERGENCY PIN FALLBACK (SHOWN ONLY IF 3+ FAILURES AS REQUESTED) */}
-                  {failedFingerprintAttempts >= 3 && (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-600/50 rounded-2xl text-center space-y-2.5 animate-in fade-in zoom-in-95">
-                      <div className="flex items-center justify-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-200">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span>Sidik Jari Gagal 3 Kali Berturut-turut</span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                        Fitur darurat telah aktif. Anda dapat menggunakan PIN 4-digit yang telah dibuat saat pendaftaran untuk masuk ke portal.
-                      </p>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span>Password Super Admin:</span>
+                      <span className="text-[11px] font-normal text-slate-400">Default: <strong className="font-mono text-emerald-600 dark:text-emerald-400">iftahadmin87</strong></span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showAdminPassword ? "text" : "password"}
+                        value={adminPasswordInput}
+                        onChange={(e) => setAdminPasswordInput(e.target.value)}
+                        placeholder="Ketik password iftahadmin87..."
+                        className="w-full px-4 py-3.5 pr-11 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all dark:text-white shadow-sm"
+                        autoFocus
+                      />
                       <button
                         type="button"
-                        onClick={() => {
-                          setAuthMode('pin');
-                          setErrorMsg('');
-                        }}
-                        className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                        onClick={() => setShowAdminPassword(!showAdminPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                        tabIndex={-1}
                       >
-                        <KeyRound className="w-4 h-4" />
-                        <span>Masuk dengan PIN Darurat Wali</span>
+                        {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* NUMERIC PIN MODE (FOR STAFF OR EMERGENCY WALI AFTER 3 FAILED ATTEMPTS) */}
-              {authMode === 'pin' && (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-xs text-slate-700 dark:text-slate-300 font-bold mb-1">
-                      Masukkan {targetAccount.pin?.length || 4}-digit PIN Keamanan:
-                    </div>
-                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                      {isWali ? 'Gunakan PIN darurat yang dibuat otomatis saat registrasi' : 'Ketik di keyboard atau sentuh tombol di bawah'}
-                    </div>
-
-                    {/* Hidden input to capture keyboard */}
-                    <input
-                      ref={pinInputRef}
-                      type="password"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={targetAccount.pin?.length || 4}
-                      value={inputPin}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/[^0-9]/g, '');
-                        setInputPin(val);
-                        if (val.length === (targetAccount.pin?.length || 4)) {
-                          attemptPinLogin(val);
-                        }
-                      }}
-                      className="opacity-0 absolute -z-10 pointer-events-none"
-                      autoFocus
-                    />
-
-                    {/* Visual PIN Dots Indicator */}
-                    <div 
-                      onClick={() => pinInputRef.current && pinInputRef.current.focus()}
-                      className="flex justify-center items-center gap-3 my-4 cursor-pointer"
-                    >
-                      {Array.from({ length: targetAccount.pin?.length || 4 }).map((_, idx) => (
-                        <div
-                          key={idx}
-                          className={`w-4 h-4 rounded-full transition-all duration-150 ${
-                            idx < inputPin.length
-                              ? 'bg-sky-500 scale-125 shadow-sm shadow-sky-400/80'
-                              : 'bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600'
-                          }`}
-                        />
-                      ))}
                     </div>
                   </div>
 
-                  {/* On-screen Keypad */}
-                  <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => handlePinDigit(String(num))}
-                        className="py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-lg font-bold text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all select-none"
-                      >
-                        {num}
-                      </button>
-                    ))}
+                  <div className="space-y-2 pt-1">
                     <button
-                      type="button"
-                      onClick={handleClearPin}
-                      className="py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
+                      type="submit"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold py-3.5 px-4 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all"
                     >
-                      Clear
+                      <Lock className="w-4 h-4" />
+                      <span>Masuk sebagai Super Admin</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePinDigit('0')}
-                      className="py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-lg font-bold text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all select-none"
-                    >
-                      0
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePinBackspace}
-                      className="py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
-                    >
-                      ⌫ Hapus
-                    </button>
-                  </div>
 
-                  {/* Back to Biometric button */}
-                  <div className="text-center pt-2">
                     <button
                       type="button"
                       onClick={() => {
-                        setAuthMode('biometric');
+                        setAdminPasswordInput('iftahadmin87');
                         setErrorMsg('');
                       }}
-                      className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-semibold flex items-center justify-center gap-1 mx-auto"
+                      className="w-full bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold py-2 px-3 rounded-xl text-xs transition-colors"
                     >
-                      <Fingerprint className="w-3.5 h-3.5" />
-                      <span>Kembali ke Sensor Sidik Jari</span>
+                      Gunakan Password Default (iftahadmin87)
                     </button>
                   </div>
+                </form>
+              ) : targetAccount.type === 'role' && targetAccount.biometricStatus === 'PENDING_APPROVAL' ? (
+                /* B. PETUGAS WAITING FOR APPROVAL */
+                <div className="space-y-4 text-center py-2">
+                  <div className="w-16 h-16 rounded-3xl bg-amber-50 dark:bg-amber-950/70 border-2 border-amber-300 dark:border-amber-500/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                    <Clock className="w-8 h-8 animate-pulse" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-full border border-amber-300 dark:border-amber-700">
+                      Status Petugas: Menunggu Persetujuan Admin
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white pt-2">
+                      Sidik Jari Petugas Sedang Diverifikasi
+                    </h3>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-sm mx-auto">
+                      Data pendaftaran biometrik Anda telah terekam. Silakan konfirmasi ke Super Admin Ma'had agar sidik jari disetujui dan dapat digunakan untuk login bertransaksi.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-950/90 rounded-2xl border border-slate-200 dark:border-slate-800 text-left space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                      <span>Nama Petugas:</span>
+                      <span className="text-slate-900 dark:text-white font-bold">{targetAccount.name}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                      <span>Unit / Posisi:</span>
+                      <span className="font-bold text-sky-600 dark:text-sky-400">{targetAccount.title}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500 dark:text-slate-400">
+                      <span>Kode Sidik Jari:</span>
+                      <span className="font-mono text-xs font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
+                        {targetAccount.fingerprintCode || '-'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleContactAdminWA}
+                      className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 transition-transform active:scale-98"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Hubungi Admin Ma'had via WhatsApp (082119836050)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        approveStaffBiometric(targetAccount.token);
+                        confetti({ particleCount: 70, spread: 60 });
+                      }}
+                      className="w-full bg-slate-100 dark:bg-slate-950 hover:bg-slate-200 dark:hover:bg-slate-800 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-500/30 font-semibold py-2 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                      <span>Simulasi Pengujian: Setujui Sekarang & Buka Login Petugas</span>
+                    </button>
+                  </div>
+                </div>
+              ) : targetAccount.type === 'role' ? (
+                /* C. PETUGAS APPROVED: MANDATORY BIOMETRIC LOGIN ONLY */
+                <div className="space-y-4">
+                  <div className="text-center space-y-1 mb-1">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-300 text-xs font-bold">
+                      <Fingerprint className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                      <span>Login Biometrik Petugas ({targetAccount.title})</span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Wajib menempelkan jari fisik pada sensor layar HP/tablet. Tidak dapat diklik dengan mouse.
+                    </p>
+                  </div>
+
+                  <BiometricTouchPad
+                    santriName={targetAccount.name}
+                    title={`Verifikasi Sidik Jari ${targetAccount.title}`}
+                    subtitle="Tempelkan sidik jari pada sensor di bawah hingga penuh 100%"
+                    expectedFingerprintCode={targetAccount.fingerprintCode}
+                    onVerified={handleBiometricSuccess}
+                  />
+                </div>
+              ) : (
+                /* D. WALI SANTRI LOGIN (AUTO-DIRECT / PURE BIOMETRIC WITH 3x EMERGENCY PIN) */
+                <div className="space-y-4">
+                  {/* DIRECT ACCESS BANNER FOR VERIFIED WALI */}
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-600/50 rounded-2xl text-center space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-center gap-2 text-xs font-black text-emerald-800 dark:text-emerald-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>Akun & Sidik Jari Terverifikasi Resmi</span>
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Selamat datang Wali Santri <strong>{targetAccount.name}</strong>. Tautan Anda telah terverifikasi oleh Admin Ma'had.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => loginWithBiometric(targetAccount, 'VERIFIED_LINK_DIRECT_LOGIN')}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      <span>Masuk Langsung ke Portal Pengelolaan Uang Santri</span>
+                    </button>
+                  </div>
+
+                  {/* FINGERPRINT TOUCHPAD OPTION */}
+                  {authMode === 'biometric' && (
+                    <div className="space-y-4 pt-1">
+                      <BiometricTouchPad
+                        santriName={targetAccount.name}
+                        title="Atau Pindai Sidik Jari Masuk"
+                        subtitle="Tempelkan sidik jari fisik pada sensor layar sentuh"
+                        expectedFingerprintCode={targetAccount.fingerprintCode}
+                        onVerified={handleBiometricSuccess}
+                      />
+
+                      {/* Failure simulator/test button if user has scanner trouble */}
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={() => handleBiometricFailure('Sidik jari tidak cocok dengan data terdaftar')}
+                          className="text-[11px] text-slate-400 hover:text-rose-500 hover:underline transition-colors"
+                        >
+                          Kendala Sidik Jari? (Simulasi Gagal: {failedFingerprintAttempts}/3)
+                        </button>
+                      </div>
+
+                      {/* EMERGENCY PIN FALLBACK (SHOWN ONLY IF 3+ FAILURES AS REQUESTED) */}
+                      {failedFingerprintAttempts >= 3 && (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-600/50 rounded-2xl text-center space-y-2.5 animate-in fade-in zoom-in-95">
+                          <div className="flex items-center justify-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-200">
+                            <AlertTriangle className="w-4 h-4 text-amber-600" />
+                            <span>Sidik Jari Gagal 3 Kali Berturut-turut</span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Fitur darurat telah aktif. Anda dapat menggunakan PIN 4-digit yang telah dibuat saat pendaftaran untuk masuk ke portal.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode('pin');
+                              setErrorMsg('');
+                            }}
+                            className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                            <span>Masuk dengan PIN Darurat Wali</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* EMERGENCY NUMERIC PIN MODE (FOR WALI AFTER 3 FAILED ATTEMPTS) */}
+                  {authMode === 'pin' && (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <div className="text-xs text-slate-700 dark:text-slate-300 font-bold mb-1">
+                          Masukkan {targetAccount.pin?.length || 4}-digit PIN Keamanan:
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Gunakan PIN darurat yang dibuat otomatis saat registrasi
+                        </div>
+
+                        {/* Hidden input to capture keyboard */}
+                        <input
+                          ref={pinInputRef}
+                          type="password"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={targetAccount.pin?.length || 4}
+                          value={inputPin}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '');
+                            setInputPin(val);
+                            if (val.length === (targetAccount.pin?.length || 4)) {
+                              attemptPinLogin(val);
+                            }
+                          }}
+                          className="opacity-0 absolute -z-10 pointer-events-none"
+                          autoFocus
+                        />
+
+                        {/* Visual PIN Dots Indicator */}
+                        <div 
+                          onClick={() => pinInputRef.current && pinInputRef.current.focus()}
+                          className="flex justify-center items-center gap-3 my-4 cursor-pointer"
+                        >
+                          {Array.from({ length: targetAccount.pin?.length || 4 }).map((_, idx) => (
+                            <div
+                              key={idx}
+                              className={`w-4 h-4 rounded-full transition-all duration-150 ${
+                                idx < inputPin.length
+                                  ? 'bg-sky-500 scale-125 shadow-sm shadow-sky-400/80'
+                                  : 'bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* On-screen Keypad */}
+                      <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => handlePinDigit(String(num))}
+                            className="py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-lg font-bold text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all select-none"
+                          >
+                            {num}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={handleClearPin}
+                          className="py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
+                        >
+                          Clear
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePinDigit('0')}
+                          className="py-3 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-lg font-bold text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm transition-all select-none"
+                        >
+                          0
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handlePinBackspace}
+                          className="py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-xs font-bold text-slate-500 dark:text-slate-400 rounded-2xl transition-all border border-slate-200 dark:border-slate-800"
+                        >
+                          ⌫ Hapus
+                        </button>
+                      </div>
+
+                      {/* Back to Biometric button */}
+                      <div className="text-center pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode('biometric');
+                            setErrorMsg('');
+                          }}
+                          className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-semibold flex items-center justify-center gap-1 mx-auto"
+                        >
+                          <Fingerprint className="w-3.5 h-3.5" />
+                          <span>Kembali ke Sensor Sidik Jari</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>

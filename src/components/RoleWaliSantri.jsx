@@ -19,12 +19,14 @@ import {
   Info,
   Calendar,
   Lock,
-  ChevronRight
+  ChevronRight,
+  Camera
 } from 'lucide-react';
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
 import confetti from 'canvas-confetti';
 import { openWhatsAppDirect } from '../utils/whatsapp';
 import WhatsAppMessageModal from './WhatsAppMessageModal';
+import AvatarEditorModal from './AvatarEditorModal';
 
 export default function RoleWaliSantri() {
   const {
@@ -38,11 +40,13 @@ export default function RoleWaliSantri() {
     submitTopupRequest,
     updateSpendingLimit,
     activeParentToken,
-    showToast
+    showToast,
+    updateSessionAvatar
   } = useApp();
 
   // Tab views within Wali Portal: 'overview' | 'topup' | 'limits' | 'history'
   const [activeTab, setActiveTab] = useState('overview');
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   // WhatsApp Message Modal State
   const [waModalOpen, setWaModalOpen] = useState(false);
@@ -284,12 +288,37 @@ export default function RoleWaliSantri() {
               </div>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-xl text-xs text-sky-100 mb-6">
-              <span className="font-semibold text-white">{currentChild.name}</span>
-              <span>•</span>
-              <span>{currentChild.class}</span>
-              <span>•</span>
-              <span>Nomor ISB: <strong className="font-mono text-white">{currentChild.nis}</strong></span>
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-white/10 px-4 py-2.5 rounded-2xl text-xs text-sky-100 mb-6 border border-white/15">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAvatarModalOpen(true)}
+                  className="relative group cursor-pointer focus:outline-none shrink-0"
+                  title="Klik untuk ganti foto avatar ananda"
+                >
+                  <img
+                    src={currentChild.avatar || './logo-maisya.jpg'}
+                    alt={currentChild.name}
+                    className="w-10 h-10 rounded-xl object-cover border border-white/40 shadow-xs"
+                  />
+                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center opacity-85 group-hover:scale-110 transition-all border border-white">
+                    <Camera className="w-2.5 h-2.5" />
+                  </span>
+                </button>
+                <div>
+                  <div className="font-bold text-white text-sm">{currentChild.name}</div>
+                  <div className="opacity-90">{currentChild.class} • Nomor ISB: <strong className="font-mono text-white">{currentChild.nis}</strong></div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAvatarModalOpen(true)}
+                className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all"
+              >
+                <Camera className="w-3.5 h-3.5 text-sky-200" />
+                <span>Ganti Foto Avatar</span>
+              </button>
             </div>
           )}
 
@@ -979,6 +1008,15 @@ export default function RoleWaliSantri() {
         phoneNumber={waModalData.phoneNumber}
         initialMessage={waModalData.initialMessage}
         title={waModalData.title}
+      />
+
+      {/* Avatar Editor Modal for Wali Santri */}
+      <AvatarEditorModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatar={currentChild?.avatar}
+        onSaveAvatar={updateSessionAvatar}
+        title={`Ganti Foto Profil: ${currentChild?.name || 'Santri'}`}
       />
     </div>
   );

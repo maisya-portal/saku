@@ -41,6 +41,7 @@ import {
 import { useApp, playSound, formatRupiah } from '../context/AppContext';
 import { formatPhoneNumber, openWhatsAppDirect } from '../utils/whatsapp';
 import WhatsAppMessageModal from './WhatsAppMessageModal';
+import PetugasBiometricRegisterModal from './PetugasBiometricRegisterModal';
 import confetti from 'canvas-confetti';
 
 export default function LandingPage({ onSelectRole }) {
@@ -81,6 +82,7 @@ export default function LandingPage({ onSelectRole }) {
   const [staffPinGateOpen, setStaffPinGateOpen] = useState(false);
   const [staffPinInput, setStaffPinInput] = useState('');
   const [staffPinError, setStaffPinError] = useState('');
+  const [staffRegisterModalOpen, setStaffRegisterModalOpen] = useState(false);
 
   // Live lookup for existing registered Wali Santri
   const matchedExistingWali = useMemo(() => {
@@ -1394,7 +1396,21 @@ export default function LandingPage({ onSelectRole }) {
               </button>
             </div>
 
-            <div className="text-[10px] text-center text-slate-400 pt-1">
+            <div className="pt-2 text-center border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setStaffPinGateOpen(false);
+                  setStaffRegisterModalOpen(true);
+                }}
+                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center justify-center gap-1.5 mx-auto"
+              >
+                <Fingerprint className="w-3.5 h-3.5" />
+                <span>Pendaftaran Sidik Jari Petugas Baru</span>
+              </button>
+            </div>
+
+            <div className="text-[10px] text-center text-slate-400 pt-0.5">
               Petugas resmi Ma'had Imam Syafi'i Brebes
             </div>
           </div>
@@ -1450,8 +1466,22 @@ export default function LandingPage({ onSelectRole }) {
               ))}
             </div>
 
-            <div className="text-[10px] text-center text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
-              Setiap sesi petugas dilindungi PIN & Sidik Jari Touchscreen
+            <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStaffModal(false);
+                  setStaffRegisterModalOpen(true);
+                }}
+                className="w-full py-2.5 px-3 rounded-2xl bg-sky-50 dark:bg-sky-950/70 hover:bg-sky-100 dark:hover:bg-sky-900 border border-sky-300 dark:border-sky-700/60 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs"
+              >
+                <Fingerprint className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+                <span>Pendaftaran Sidik Jari Petugas Baru</span>
+              </button>
+
+              <div className="text-[10px] text-center text-slate-400 dark:text-slate-500">
+                Setiap sesi petugas dilindungi PIN & Sidik Jari Touchscreen
+              </div>
             </div>
           </div>
         </div>
@@ -1466,6 +1496,12 @@ export default function LandingPage({ onSelectRole }) {
         phoneNumber={waModalData.phoneNumber}
         initialMessage={waModalData.initialMessage}
         title={waModalData.title}
+      />
+
+      {/* MODAL 4: STAFF BIOMETRIC REGISTRATION MODAL */}
+      <PetugasBiometricRegisterModal
+        isOpen={staffRegisterModalOpen}
+        onClose={() => setStaffRegisterModalOpen(false)}
       />
     </div>
   );

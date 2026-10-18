@@ -29,7 +29,14 @@ import {
   Landmark,
   Fingerprint,
   Clock,
-  RotateCcw
+  RotateCcw,
+  CheckCircle,
+  CheckCircle2,
+  ShieldAlert,
+  UserCheck,
+  UserPlus,
+  Camera,
+  Briefcase
 } from 'lucide-react';
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
 import { openWhatsAppDirect } from '../utils/whatsapp';
@@ -41,6 +48,8 @@ import {
 } from '../services/firebase';
 import confetti from 'canvas-confetti';
 import WhatsAppDispatchModal from './WhatsAppDispatchModal';
+import PetugasBiometricRegisterModal from './PetugasBiometricRegisterModal';
+import AvatarEditorModal from './AvatarEditorModal';
 
 export default function RoleAdminBendahara() {
   const {
@@ -58,14 +67,31 @@ export default function RoleAdminBendahara() {
     approveTopup,
     rejectTopup,
     approveFingerprint,
+    approveAllPendingFingerprints,
     rejectFingerprint,
     resetFingerprint,
+    approveStaffBiometric,
+    rejectStaffBiometric,
+    updateAdminPassword,
+    updateSessionAvatar,
     showToast
   } = useApp();
 
   // Active Tab
   const [activeAdminTab, setActiveAdminTab] = useState('roles'); // 'roles' | 'santri' | 'approvals' | 'biometric' | 'settings' | 'reports' | 'firebase'
   const [biometricFilter, setBiometricFilter] = useState('all'); // 'all' | 'pending' | 'approved'
+  const [biometricSubTab, setBiometricSubTab] = useState('wali'); // 'wali' | 'staff'
+
+  // Modals for Petugas Biometric & Avatar
+  const [isStaffRegisterModalOpen, setIsStaffRegisterModalOpen] = useState(false);
+  const [avatarModalState, setAvatarModalState] = useState({
+    isOpen: false,
+    targetId: null,
+    targetType: null, // 'santri' | 'role'
+    currentAvatar: ''
+  });
+  const [newAdminPassInput, setNewAdminPassInput] = useState('');
+  const [isChangingAdminPass, setIsChangingAdminPass] = useState(false);
 
   // Grouped Wali Santri for Biometric Verification
   const waliBiometricList = useMemo(() => {
@@ -95,6 +121,9 @@ export default function RoleAdminBendahara() {
   }, [santriList]);
 
   const pendingBiometricCount = waliBiometricList.filter(w => w.fingerprintStatus === 'PENDING_APPROVAL').length;
+  const unapprovedWaliCount = waliBiometricList.filter(w => w.fingerprintStatus !== 'APPROVED').length;
+  const staffAccounts = useMemo(() => roleAccounts.filter(r => r.role !== 'admin'), [roleAccounts]);
+  const pendingStaffCount = staffAccounts.filter(s => s.biometricStatus === 'PENDING_APPROVAL').length;
 
   // WhatsApp Dispatch Modal State
   const [whatsAppModal, setWhatsAppModal] = useState({
@@ -376,14 +405,30 @@ export default function RoleAdminBendahara() {
               const magicUrl = `${baseUrl}#token=${acc.token}`;
 
               return (
-                <div key={acc.id} className="p-5 rounded-2xl border-2 border-slate-200 bg-slate-50/60 hover:bg-white hover:border-sky-500/50 hover:shadow-md transition-all space-y-4">
+                <div key={acc.id} className="p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 hover:border-sky-500/50 hover:shadow-md transition-all space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={acc.avatar}
-                        alt={acc.name}
-                        className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-300"
-                      />
+                      <div className="relative group">
+                        <img
+                          src={acc.avatar}
+                          alt={acc.name}
+                          className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-300 dark:border-slate-700 shadow-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAvatarModalState({
+                            isOpen: true,
+                            targetId: acc.id,
+                            targetType: 'role',
+                            currentAvatar: acc.avatar
+                          })}
+                          className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-full text-slate-600 hover:text-sky-600 shadow-xs"
+                          title="Ganti Foto Avatar"
+                        >
+                          <Camera className="w-3 h-3" />
+                        </button>
+                      </div>
+
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-slate-900 dark:text-white text-sm">{acc.name}</h4>
@@ -391,7 +436,7 @@ export default function RoleAdminBendahara() {
                             {acc.role}
                           </span>
                         </div>
-                        <div className="text-xs text-slate-600 mt-0.5 font-medium">{acc.title}</div>
+                        <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 font-medium">{acc.title}</div>
                         <div className="text-[11px] text-slate-400 mt-0.5">WA: {acc.phone || '-'}</div>
                       </div>
                     </div>
@@ -399,30 +444,57 @@ export default function RoleAdminBendahara() {
                     <button
                       type="button"
                       onClick={() => setEditingRole(acc)}
-                      className="p-2 rounded-xl text-slate-500 hover:text-sky-700 hover:bg-slate-100"
-                      title="Ubah Kredensial / PIN"
+                      className="p-2 rounded-xl text-slate-500 hover:text-sky-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      title="Ubah Kredensial"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Token & PIN Credentials */}
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">PIN Keamanan Petugas:</span>
-                      <span className="font-mono font-black text-slate-900 dark:text-white bg-slate-100 px-2 py-0.5 rounded tracking-widest">
-                        {acc.pin}
-                      </span>
-                    </div>
+                  {/* Token & PIN / Password Credentials */}
+                  <div className="bg-white dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-2">
+                    {acc.role === 'admin' ? (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-slate-500 font-bold">Password Super Admin:</span>
+                          <span className="font-mono font-black text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/80 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
+                            {acc.pin || acc.password || 'iftahadmin87'}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          🛡️ Super Admin login khusus dengan password ini (tanpa biometrik).
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 font-medium">Status Biometrik:</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            acc.biometricStatus === 'APPROVED'
+                              ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {acc.biometricStatus === 'APPROVED' ? 'Wajib Login Biometrik' : 'Menunggu Persetujuan'}
+                          </span>
+                        </div>
 
-                    <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 font-medium">Kode Sidik Jari:</span>
+                          <span className="font-mono font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-[11px]">
+                            {acc.fingerprintCode || `FP-STAFF-${acc.role.toUpperCase()}`}
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-850">
                       <span className="text-slate-500">Token Magic Link:</span>
-                      <span className="font-mono font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded">
+                      <span className="font-mono font-bold text-sky-700 bg-sky-50 dark:bg-sky-950/80 px-2 py-0.5 rounded">
                         #{acc.token}
                       </span>
                     </div>
 
-                    <div className="text-[10px] text-slate-400 truncate pt-1 border-t border-slate-100 font-mono">
+                    <div className="text-[10px] text-slate-400 truncate pt-0.5 font-mono">
                       {magicUrl}
                     </div>
                   </div>
@@ -689,203 +761,530 @@ export default function RoleAdminBendahara() {
         </div>
       )}
 
-      {/* TAB: VERIFIKASI BIOMETRIK WALI SANTRI */}
+      {/* TAB: VERIFIKASI BIOMETRIK (WALI SANTRI & PETUGAS) */}
       {activeAdminTab === 'biometric' && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          
+          {/* Top Title & Batch Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Verifikasi Pendaftaran Sidik Jari Biometrik Wali Santri
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Verifikasi Pendaftaran Sidik Jari Biometrik
                 </h3>
-                {pendingBiometricCount > 0 && (
+                {unapprovedWaliCount > 0 && (
                   <span className="bg-rose-500 text-white text-xs font-black px-2.5 py-0.5 rounded-full animate-pulse">
-                    {pendingBiometricCount} Menunggu
+                    {unapprovedWaliCount} Wali Belum Disetujui
+                  </span>
+                )}
+                {pendingStaffCount > 0 && (
+                  <span className="bg-amber-500 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded-full animate-pulse">
+                    {pendingStaffCount} Petugas Menunggu
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Wali santri yang mendaftar via WhatsApp wajib diverifikasi biometriknya oleh Bendahara Ma'had demi keamanan dana tabungan santri.
+                Verifikasi & setujui pendaftaran sidik jari resmi wali santri dan petugas kasir operasional demi keamanan dana pesantren.
               </p>
             </div>
 
-            {/* Quick KPI count */}
-            <div className="flex items-center gap-2">
-              <span className="bg-sky-50 text-sky-800 text-xs font-bold px-3 py-1.5 rounded-xl border border-sky-200">
-                {waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length} Terverifikasi Aktif
-              </span>
+            {/* Quick KPI & Action Buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {biometricSubTab === 'wali' && unapprovedWaliCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    approveAllPendingFingerprints();
+                    confetti({ particleCount: 80, spread: 70 });
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/25 active:scale-95 transition-all"
+                  title="Setujui seluruh permohonan wali santri sekaligus"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Setujui Semua Wali ({unapprovedWaliCount})</span>
+                </button>
+              )}
+
+              {biometricSubTab === 'staff' && (
+                <button
+                  type="button"
+                  onClick={() => setIsStaffRegisterModalOpen(true)}
+                  className="bg-sky-500 hover:bg-sky-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-sky-500/25 active:scale-95 transition-all"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Daftarkan Petugas Baru</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Filter Pills */}
-          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+          {/* Sub-Tabs: Wali Santri vs Petugas */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setBiometricFilter('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                biometricFilter === 'all'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+              onClick={() => setBiometricSubTab('wali')}
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all ${
+                biometricSubTab === 'wali'
+                  ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
               }`}
             >
-              Semua ({waliBiometricList.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setBiometricFilter('pending')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                biometricFilter === 'pending'
-                  ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-              }`}
-            >
-              <span>Menunggu Verifikasi</span>
-              {pendingBiometricCount > 0 && (
-                <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                  {pendingBiometricCount}
+              <Users className="w-4 h-4" />
+              <span>Wali Santri ({waliBiometricList.length})</span>
+              {unapprovedWaliCount > 0 && (
+                <span className="bg-rose-500 text-white text-[10px] px-2 py-0.2 rounded-full font-black">
+                  {unapprovedWaliCount}
                 </span>
               )}
             </button>
 
             <button
               type="button"
-              onClick={() => setBiometricFilter('approved')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                biometricFilter === 'approved'
-                  ? 'bg-sky-600 text-white shadow-sm'
-                  : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200'
+              onClick={() => setBiometricSubTab('staff')}
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all ${
+                biometricSubTab === 'staff'
+                  ? 'bg-sky-500 text-white shadow-md shadow-sky-500/25'
+                  : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
               }`}
             >
-              Disetujui ({waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length})
+              <Briefcase className="w-4 h-4" />
+              <span>Petugas Ma'had ({staffAccounts.length})</span>
+              {pendingStaffCount > 0 && (
+                <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.2 rounded-full font-black">
+                  {pendingStaffCount}
+                </span>
+              )}
             </button>
           </div>
 
-          {/* Biometrics List */}
-          {(() => {
-            const filtered = waliBiometricList.filter(w => {
-              if (biometricFilter === 'pending') return w.fingerprintStatus === 'PENDING_APPROVAL';
-              if (biometricFilter === 'approved') return w.fingerprintStatus === 'APPROVED';
-              return true;
-            });
+          {/* ======================================================== */}
+          {/* SUB-TAB 1: WALI SANTRI BIOMETRICS */}
+          {/* ======================================================== */}
+          {biometricSubTab === 'wali' && (
+            <div className="space-y-4">
+              {/* Filter Pills for Wali */}
+              <div className="flex items-center gap-2 flex-wrap border-b border-slate-100 dark:border-slate-800 pb-3">
+                <button
+                  type="button"
+                  onClick={() => setBiometricFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    biometricFilter === 'all'
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  Semua ({waliBiometricList.length})
+                </button>
 
-            if (filtered.length === 0) {
-              return (
-                <div className="text-center py-12 text-slate-400 text-xs">
-                  Tidak ada permohonan biometrik dalam kategori ini.
+                <button
+                  type="button"
+                  onClick={() => setBiometricFilter('unapproved')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    biometricFilter === 'unapproved'
+                      ? 'bg-rose-500 text-white shadow-sm font-black'
+                      : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                  }`}
+                >
+                  <span>Belum Disetujui</span>
+                  {unapprovedWaliCount > 0 && (
+                    <span className="bg-rose-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                      {unapprovedWaliCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBiometricFilter('pending')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    biometricFilter === 'pending'
+                      ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
+                      : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                  }`}
+                >
+                  <span>Menunggu Verifikasi</span>
+                  {pendingBiometricCount > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                      {pendingBiometricCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBiometricFilter('approved')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    biometricFilter === 'approved'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                  }`}
+                >
+                  Terverifikasi Aktif ({waliBiometricList.filter(w => w.fingerprintStatus === 'APPROVED').length})
+                </button>
+              </div>
+
+              {/* Biometrics List of Wali */}
+              {(() => {
+                const filtered = waliBiometricList.filter(w => {
+                  if (biometricFilter === 'unapproved') return w.fingerprintStatus !== 'APPROVED';
+                  if (biometricFilter === 'pending') return w.fingerprintStatus === 'PENDING_APPROVAL';
+                  if (biometricFilter === 'approved') return w.fingerprintStatus === 'APPROVED';
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-12 text-slate-400 text-xs bg-slate-50 dark:bg-slate-950/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+                      Tidak ada data wali santri dalam kategori ini.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {filtered.map(w => {
+                      const isPending = w.fingerprintStatus === 'PENDING_APPROVAL';
+                      const isApproved = w.fingerprintStatus === 'APPROVED';
+                      const isRejected = w.fingerprintStatus === 'REJECTED';
+                      const isNotRegistered = !isPending && !isApproved && !isRejected;
+
+                      const handleSendApprovalWA = () => {
+                        const baseUrl = pesantrenInfo.appBaseUrl || `${window.location.origin}${window.location.pathname}`;
+                        const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+                        const link = `${cleanBase}#token=${w.parentToken}`;
+
+                        const msg = 
+                          `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
+                          `Kepada Yth. Bapak/Ibu *${w.parentName}*\n` +
+                          `Alhamdulillah, akun pendaftaran Anda pada portal Maisya-Saku Ma'had Imam Syafi'i Brebes telah *DISETUJUI & AKTIF* oleh Bendahara Ma'had.\n\n` +
+                          `Silakan klik tautan di bawah ini untuk langsung membuka aplikasi pengelolaan uang saku santri:\n` +
+                          `${link}\n\n` +
+                          `Jazakumullahu khairan.`;
+
+                        openWhatsAppDirect(w.parentPhone, msg);
+                      };
+
+                      const handleSendEnrollmentLinkWA = () => {
+                        const baseUrl = pesantrenInfo.appBaseUrl || `${window.location.origin}${window.location.pathname}`;
+                        const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+                        const link = `${cleanBase}#token=${w.parentToken}`;
+
+                        const msg = 
+                          `Assalamu'alaikum Warahmatullahi Wabarakatuh Bapak/Ibu *${w.parentName}*.\n\n` +
+                          `Silakan klik tautan di bawah ini untuk melengkapi perekaman sidik jari fisik Anda pada layar HP/tablet:\n` +
+                          `${link}\n\n` +
+                          `Setelah merekam, Super Admin Ma'had akan menyetujui akun Anda. Jazakumullahu khairan.`;
+
+                        openWhatsAppDirect(w.parentPhone, msg);
+                      };
+
+                      return (
+                        <div 
+                          key={w.parentToken}
+                          className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            isPending 
+                              ? 'border-amber-300 dark:border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/30 shadow-sm' 
+                              : isApproved 
+                              ? 'border-sky-200 dark:border-sky-800 bg-sky-50/30 dark:bg-sky-950/20' 
+                              : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3.5">
+                            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
+                              isPending 
+                                ? 'bg-amber-100 text-amber-700' 
+                                : isApproved 
+                                ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' 
+                                : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}>
+                              <Fingerprint className="w-6 h-6" />
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="font-bold text-slate-900 dark:text-white text-sm">{w.parentName}</h4>
+                                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
+                                  WA: {w.parentPhone || '-'}
+                                </span>
+                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                  isPending
+                                    ? 'bg-amber-400 text-slate-900 animate-pulse'
+                                    : isApproved
+                                    ? 'bg-sky-600 text-white'
+                                    : isRejected
+                                    ? 'bg-rose-600 text-white'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                }`}>
+                                  {isPending ? 'Menunggu Verifikasi' : isApproved ? 'Terverifikasi Aktif' : isRejected ? 'Ditolak' : 'Belum Rekam'}
+                                </span>
+                              </div>
+
+                              {/* Children Summary */}
+                              <div className="text-xs text-slate-700 dark:text-slate-300 font-medium pt-0.5">
+                                <span className="text-slate-500">Santri: </span>
+                                {w.children.map((c) => (
+                                  <span key={c.id} className="inline-flex items-center gap-1 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-[11px] mr-1.5 my-0.5">
+                                    <strong className="text-sky-700 dark:text-sky-400">{c.name}</strong>
+                                    <span className="text-slate-400">({c.class} • ISB: {c.nis})</span>
+                                  </span>
+                                ))}
+                              </div>
+
+                              {/* Security & Verification Metadata Badges */}
+                              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                                <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-mono px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
+                                  🔒 Gembok: <strong>{w.bindingLockCode || '-'}</strong>
+                                </span>
+                                <span className="bg-sky-50 dark:bg-sky-950 text-sky-800 dark:text-sky-300 font-mono px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
+                                  👆 Sidik Jari: <strong>{w.fingerprintCode || 'Belum Rekam'}</strong>
+                                </span>
+                                <span className="bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                                  🔑 PIN: <strong>{w.pin || '-'}</strong>
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 pt-0.5">
+                                <span>Token: #{w.parentToken}</span>
+                                {w.fingerprintRegisteredAt && (
+                                  <span>• Diajukan: {formatDateTime(w.fingerprintRegisteredAt)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* ACTION BUTTONS (MANDATORY & ALWAYS ACCESSIBLE) */}
+                          <div className="flex items-center gap-2 self-end md:self-center flex-wrap">
+                            {/* CASE 1: BELUM REKAM (Direct Approve & Send Link) */}
+                            {isNotRegistered && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleSendEnrollmentLinkWA}
+                                  className="bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/80 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center gap-1.5 transition-colors border border-sky-200 dark:border-sky-800"
+                                  title="Kirim pesan WA berisi tautan rekam sidik jari ke wali santri"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-sky-600" />
+                                  <span>Kirim Tautan Rekam WA</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    approveFingerprint(w.parentToken);
+                                    confetti({ particleCount: 60, spread: 50 });
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 active:scale-95 transition-all"
+                                  title="Admin menyetujui langsung wali santri ini agar tautannya langsung aktif"
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span>Setujui Langsung</span>
+                                </button>
+                              </>
+                            )}
+
+                            {/* CASE 2: PENDING APPROVAL */}
+                            {isPending && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const reason = window.prompt('Alasan penolakan:', 'Identitas wali santri tidak sesuai catatan');
+                                    if (reason) rejectFingerprint(w.parentToken, reason);
+                                  }}
+                                  className="p-2.5 rounded-xl border border-rose-300 dark:border-rose-700 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs font-bold"
+                                  title="Tolak Permohonan"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    approveFingerprint(w.parentToken);
+                                    confetti({ particleCount: 60, spread: 50 });
+                                  }}
+                                  className="bg-sky-500 hover:bg-sky-600 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  <span>Setujui (Approve)</span>
+                                </button>
+                              </>
+                            )}
+
+                            {/* CASE 3: APPROVED */}
+                            {isApproved && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleSendApprovalWA}
+                                  className="bg-sky-50 dark:bg-sky-950 hover:bg-sky-100 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors border border-sky-200 dark:border-sky-800"
+                                  title="Kirim pesan WA konfirmasi bahwa akun sudah aktif dan siap langsung masuk"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                                  <span>Kirim Kabar ke WA</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(`Reset biometrik untuk ${w.parentName}? Wali santri harus merekam ulang sidik jarinya.`)) {
+                                      resetFingerprint(w.parentToken);
+                                    }
+                                  }}
+                                  className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                                  title="Reset Sidik Jari"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+
+                            {/* CASE 4: REJECTED */}
+                            {isRejected && (
+                              <button
+                                type="button"
+                                onClick={() => resetFingerprint(w.parentToken)}
+                                className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                                <span>Beri Kesempatan Daftar Ulang</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* SUB-TAB 2: PETUGAS MA'HAD BIOMETRICS */}
+          {/* ======================================================== */}
+          {biometricSubTab === 'staff' && (
+            <div className="space-y-4">
+              <div className="p-3.5 bg-sky-50 dark:bg-sky-950/60 rounded-2xl border border-sky-200 dark:border-sky-800 text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Fingerprint className="w-4 h-4 text-sky-500 shrink-0" />
+                  <span>Petugas wajib login dengan biometrik setelah disetujui Super Admin Ma'had.</span>
                 </div>
-              );
-            }
+                <button
+                  type="button"
+                  onClick={() => setIsStaffRegisterModalOpen(true)}
+                  className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Daftar Petugas Baru</span>
+                </button>
+              </div>
 
-            return (
-              <div className="space-y-3">
-                {filtered.map(w => {
-                  const isPending = w.fingerprintStatus === 'PENDING_APPROVAL';
-                  const isApproved = w.fingerprintStatus === 'APPROVED';
-                  const isRejected = w.fingerprintStatus === 'REJECTED';
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {staffAccounts.map((staff) => {
+                  const isApproved = staff.biometricStatus === 'APPROVED';
+                  const isPending = staff.biometricStatus === 'PENDING_APPROVAL';
+                  const isRejected = staff.biometricStatus === 'REJECTED';
 
-                  const handleSendApprovalWA = () => {
+                  const handleSendStaffMagicWA = () => {
                     const baseUrl = pesantrenInfo.appBaseUrl || `${window.location.origin}${window.location.pathname}`;
                     const cleanBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-                    const link = `${cleanBase}#token=${w.parentToken}`;
+                    const link = `${cleanBase}#token=${staff.token}`;
 
                     const msg = 
                       `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
-                      `Kepada Yth. Bapak/Ibu *${w.parentName}*\n` +
-                      `Alhamdulillah, pendaftaran sidik jari biometrik Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes telah *DISETUJUI* oleh Admin/Bendahara.\n\n` +
-                      `Silakan klik tautan di bawah ini untuk masuk dan menempelkan sidik jari Anda:\n` +
+                      `Kepada Akhi/Ukhti *${staff.name}* (${staff.title})\n` +
+                      `Berikut adalah Tautan Login Resmi Petugas Anda:\n` +
                       `${link}\n\n` +
+                      `Silakan buka tautan di atas melalui browser HP/tablet untuk login menggunakan sidik jari Anda.\n` +
                       `Jazakumullahu khairan.`;
 
-                    openWhatsAppDirect(w.parentPhone, msg);
+                    openWhatsAppDirect(staff.phone || '082119836050', msg);
                   };
 
                   return (
                     <div 
-                      key={w.parentToken}
-                      className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                      key={staff.id} 
+                      className={`p-5 rounded-2xl border-2 transition-all space-y-3 ${
                         isPending 
-                          ? 'border-amber-300 bg-amber-50/50 shadow-sm' 
+                          ? 'border-amber-300 bg-amber-50/50 dark:bg-amber-950/30' 
                           : isApproved 
-                          ? 'border-sky-200 bg-sky-50/30' 
-                          : 'border-slate-200 bg-slate-50'
+                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900' 
+                          : 'border-rose-300 bg-rose-50/40'
                       }`}
                     >
-                      <div className="flex items-start gap-3.5">
-                        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                          isPending 
-                            ? 'bg-amber-100 text-amber-700' 
-                            : isApproved 
-                            ? 'bg-sky-100 text-sky-700' 
-                            : 'bg-slate-200 text-slate-600'
-                        }`}>
-                          <Fingerprint className="w-6 h-6" />
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative group">
+                            <img
+                              src={staff.avatar}
+                              alt={staff.name}
+                              className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-300 dark:border-slate-700 shadow-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setAvatarModalState({
+                                isOpen: true,
+                                targetId: staff.id,
+                                targetType: 'role',
+                                currentAvatar: staff.avatar
+                              })}
+                              className="absolute -bottom-1 -right-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-full text-slate-600 hover:text-sky-600 shadow-xs"
+                              title="Ganti Foto Avatar"
+                            >
+                              <Camera className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-slate-900 dark:text-white text-sm">{staff.name}</h4>
+                              <span className="bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                                {staff.role}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">{staff.title}</div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">WA: {staff.phone || '-'}</div>
+                          </div>
                         </div>
 
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-slate-900 dark:text-white text-sm">{w.parentName}</h4>
-                            <span className="text-[11px] font-mono text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
-                              WA: {w.parentPhone || '-'}
-                            </span>
-                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                              isPending
-                                ? 'bg-amber-400 text-slate-900 dark:text-white animate-pulse'
-                                : isApproved
-                                ? 'bg-sky-600 text-white'
-                                : isRejected
-                                ? 'bg-rose-600 text-white'
-                                : 'bg-slate-200 text-slate-600'
-                            }`}>
-                              {isPending ? 'Menunggu Verifikasi' : isApproved ? 'Terverifikasi' : isRejected ? 'Ditolak' : 'Belum Rekam'}
-                            </span>
-                          </div>
+                        <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${
+                          isApproved
+                            ? 'bg-sky-600 text-white'
+                            : isPending
+                            ? 'bg-amber-400 text-slate-900 animate-pulse'
+                            : 'bg-rose-500 text-white'
+                        }`}>
+                          {isApproved ? 'Terverifikasi Biometrik' : isPending ? 'Menunggu Persetujuan' : 'Ditolak'}
+                        </span>
+                      </div>
 
-                          {/* Children Summary */}
-                          <div className="text-xs text-slate-700 font-medium pt-0.5">
-                            <span className="text-slate-500">Santri: </span>
-                            {w.children.map((c, i) => (
-                              <span key={c.id} className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-800 text-[11px] mr-1.5 my-0.5">
-                                <strong className="text-sky-800">{c.name}</strong>
-                                <span className="text-slate-400">({c.class} • ISB: {c.nis})</span>
-                              </span>
-                            ))}
-                          </div>
-
-                          {/* Security & Verification Metadata Badges */}
-                          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
-                            <span className="bg-slate-100 text-slate-700 font-mono px-2 py-0.5 rounded border border-slate-200">
-                              🔒 Gembok: <strong>{w.bindingLockCode || '-'}</strong>
-                            </span>
-                            <span className="bg-sky-50 text-sky-800 font-mono px-2 py-0.5 rounded border border-sky-200">
-                              👆 Sidik Jari: <strong>{w.fingerprintCode || 'Belum Rekam'}</strong>
-                            </span>
-                            <span className="bg-amber-50 text-amber-800 font-mono px-2 py-0.5 rounded border border-amber-200">
-                              🔑 PIN: <strong>{w.pin || '-'}</strong>
-                            </span>
-                          </div>
-
-                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 pt-0.5">
-                            <span>Token: #{w.parentToken}</span>
-                            {w.fingerprintRegisteredAt && (
-                              <span>• Diajukan: {formatDateTime(w.fingerprintRegisteredAt)}</span>
-                            )}
-                          </div>
+                      {/* Fingerprint Credentials */}
+                      <div className="p-3 bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500">Kode Sidik Jari:</span>
+                          <span className="font-mono font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/80 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
+                            {staff.fingerprintCode || 'FP-STAFF-' + staff.role.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-slate-500">Token Akses:</span>
+                          <span className="font-mono text-slate-600 dark:text-slate-400">#{staff.token}</span>
                         </div>
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center gap-2 self-end md:self-center">
+                      <div className="flex items-center gap-2 pt-1">
                         {isPending && (
                           <>
                             <button
                               type="button"
                               onClick={() => {
-                                const reason = window.prompt('Alasan penolakan:', 'Identitas wali santri tidak sesuai catatan');
-                                if (reason) rejectFingerprint(w.parentToken, reason);
+                                const reason = window.prompt('Alasan penolakan:', 'Identitas tidak sesuai');
+                                if (reason) rejectStaffBiometric(staff.token, reason);
                               }}
-                              className="p-2.5 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold"
-                              title="Tolak Permohonan"
+                              className="p-2 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold"
+                              title="Tolak"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -893,13 +1292,13 @@ export default function RoleAdminBendahara() {
                             <button
                               type="button"
                               onClick={() => {
-                                approveFingerprint(w.parentToken);
+                                approveStaffBiometric(staff.token);
                                 confetti({ particleCount: 60, spread: 50 });
                               }}
-                              className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
                             >
-                              <Check className="w-4 h-4" />
-                              <span>Setujui (Approve)</span>
+                              <CheckCircle className="w-4 h-4" />
+                              <span>Setujui Biometrik Petugas</span>
                             </button>
                           </>
                         )}
@@ -908,22 +1307,21 @@ export default function RoleAdminBendahara() {
                           <>
                             <button
                               type="button"
-                              onClick={handleSendApprovalWA}
-                              className="bg-sky-100 hover:bg-sky-200 text-sky-800 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors"
-                              title="Kirim pemberitahuan ke WhatsApp wali bahwa sidik jari sudah aktif"
+                              onClick={handleSendStaffMagicWA}
+                              className="flex-1 bg-sky-50 dark:bg-sky-950 hover:bg-sky-100 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
                             >
-                              <MessageSquare className="w-3.5 h-3.5 text-sky-700" />
-                              <span>Kirim Kabar ke WA</span>
+                              <MessageSquare className="w-3.5 h-3.5 text-sky-600" />
+                              <span>Kirim Link ke WA</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => {
-                                if (window.confirm(`Reset biometrik untuk ${w.parentName}? Wali santri harus merekam ulang sidik jarinya.`)) {
-                                  resetFingerprint(w.parentToken);
+                                if (window.confirm(`Reset biometrik untuk petugas ${staff.name}?`)) {
+                                  rejectStaffBiometric(staff.token, 'Direset oleh Super Admin');
                                 }
                               }}
-                              className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                              className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
                               title="Reset Biometrik"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
@@ -934,11 +1332,11 @@ export default function RoleAdminBendahara() {
                         {isRejected && (
                           <button
                             type="button"
-                            onClick={() => resetFingerprint(w.parentToken)}
-                            className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5"
+                            onClick={() => approveStaffBiometric(staff.token)}
+                            className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            <span>Beri Kesempatan Daftar Ulang</span>
+                            <span>Setujui Ulang</span>
                           </button>
                         )}
                       </div>
@@ -946,8 +1344,8 @@ export default function RoleAdminBendahara() {
                   );
                 })}
               </div>
-            );
-          })()}
+            </div>
+          )}
         </div>
       )}
 
@@ -1813,6 +2211,30 @@ export default function RoleAdminBendahara() {
         isRole={whatsAppModal.isRole}
         onSavePhone={whatsAppModal.onSavePhone}
         showToast={showToast}
+      />
+
+      {/* MODAL 7: PENDAFTARAN BIOMETRIK PETUGAS BARU */}
+      <PetugasBiometricRegisterModal
+        isOpen={isStaffRegisterModalOpen}
+        onClose={() => setIsStaffRegisterModalOpen(false)}
+      />
+
+      {/* MODAL 8: AVATAR EDITOR MODAL */}
+      <AvatarEditorModal
+        isOpen={avatarModalState.isOpen}
+        onClose={() => setAvatarModalState({ ...avatarModalState, isOpen: false })}
+        currentAvatar={avatarModalState.currentAvatar}
+        title="Ganti Foto Avatar Akun"
+        onSaveAvatar={(newAvatar) => {
+          if (avatarModalState.targetType === 'role' && avatarModalState.targetId) {
+            updateRoleAccount(avatarModalState.targetId, { avatar: newAvatar });
+          } else if (avatarModalState.targetType === 'santri' && avatarModalState.targetId) {
+            updateSantri(avatarModalState.targetId, { avatar: newAvatar });
+          } else {
+            updateSessionAvatar(newAvatar);
+          }
+          showToast('Foto avatar berhasil diperbarui!', 'success');
+        }}
       />
     </div>
   );

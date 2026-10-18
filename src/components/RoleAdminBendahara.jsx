@@ -77,6 +77,11 @@ export default function RoleAdminBendahara() {
           parentToken: s.parentToken,
           parentName: s.parentName || 'Wali Santri',
           parentPhone: s.parentPhone || '',
+          bindingLockCode: s.bindingLockCode || `BIND-ISB-${s.parentToken.toUpperCase()}`,
+          bindingStatus: s.bindingStatus || (s.fingerprintStatus === 'APPROVED' ? 'LOCKED' : 'PENDING_APPROVAL'),
+          isLocked: s.isLocked ?? (s.fingerprintStatus === 'APPROVED'),
+          fingerprintCode: s.fingerprintCode || null,
+          pin: s.pin || '1234',
           fingerprintStatus: s.fingerprintStatus || 'NOT_REGISTERED',
           fingerprintRegisteredAt: s.fingerprintRegisteredAt || null,
           fingerprintApprovedAt: s.fingerprintApprovedAt || null,
@@ -844,7 +849,20 @@ export default function RoleAdminBendahara() {
                             ))}
                           </div>
 
-                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2">
+                          {/* Security & Verification Metadata Badges */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                            <span className="bg-slate-100 text-slate-700 font-mono px-2 py-0.5 rounded border border-slate-200">
+                              🔒 Gembok: <strong>{w.bindingLockCode || '-'}</strong>
+                            </span>
+                            <span className="bg-sky-50 text-sky-800 font-mono px-2 py-0.5 rounded border border-sky-200">
+                              👆 Sidik Jari: <strong>{w.fingerprintCode || 'Belum Rekam'}</strong>
+                            </span>
+                            <span className="bg-amber-50 text-amber-800 font-mono px-2 py-0.5 rounded border border-amber-200">
+                              🔑 PIN: <strong>{w.pin || '-'}</strong>
+                            </span>
+                          </div>
+
+                          <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2 pt-0.5">
                             <span>Token: #{w.parentToken}</span>
                             {w.fingerprintRegisteredAt && (
                               <span>• Diajukan: {formatDateTime(w.fingerprintRegisteredAt)}</span>
@@ -952,6 +970,7 @@ export default function RoleAdminBendahara() {
                 tagline: form.get('tagline'),
                 address: form.get('address'),
                 whatsappAdmin: form.get('whatsappAdmin'),
+                staffGatePin: form.get('staffGatePin') || '991588',
                 appBaseUrl: form.get('appBaseUrl') || 'https://isb-portal.web.app/'
               });
             }}
@@ -968,31 +987,43 @@ export default function RoleAdminBendahara() {
                 />
               </div>
               <div>
-                <label className="block font-bold text-slate-700 mb-1">No. WhatsApp Resmi Bendahara:</label>
+                <label className="block font-bold text-slate-700 mb-1">No. WhatsApp Resmi Admin:</label>
                 <input
                   name="whatsappAdmin"
-                  defaultValue={pesantrenInfo.whatsappAdmin}
+                  defaultValue={pesantrenInfo.whatsappAdmin || '6282119836050'}
                   required
-                  placeholder="6281234567890"
+                  placeholder="6282119836050"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Tagline Pesantren:</label>
-              <input
-                name="tagline"
-                defaultValue={pesantrenInfo.tagline}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Tagline Pesantren:</label>
+                <input
+                  name="tagline"
+                  defaultValue={pesantrenInfo.tagline}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">PIN Gerbang Akses Petugas (Staff Gate PIN):</label>
+                <input
+                  name="staffGatePin"
+                  defaultValue={pesantrenInfo.staffGatePin || '991588'}
+                  required
+                  placeholder="991588"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold text-sky-700 focus:bg-white focus:border-sky-600 outline-none"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block font-bold text-slate-700 mb-1">Alamat Lengkap:</label>
+              <label className="block font-bold text-slate-700 mb-1">Alamat Lengkap Ma'had:</label>
               <input
                 name="address"
-                defaultValue={pesantrenInfo.address}
+                defaultValue={pesantrenInfo.address || "Jalan Terusan Islamic Center Sigempol KM 03 Limbangan Wetan Brebes"}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
               />
             </div>
@@ -1026,11 +1057,19 @@ export default function RoleAdminBendahara() {
           <div className="pt-4 border-t border-slate-200 space-y-3">
             <h4 className="font-bold text-slate-900 dark:text-white text-sm">Daftar Rekening Bank Resmi:</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {pesantrenInfo.bankAccounts.map((acc, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div className="font-bold text-sky-800 text-xs">{acc.bank}</div>
-                  <div className="text-base font-mono font-bold text-slate-900 dark:text-white mt-1">{acc.accountNo}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">a/n {acc.accountHolder}</div>
+              {pesantrenInfo.bankAccounts && pesantrenInfo.bankAccounts.map((acc, idx) => (
+                <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sky-800 text-xs">{acc.bank}</span>
+                    <span className="text-[10px] bg-sky-100 text-sky-700 font-bold px-2 py-0.5 rounded">
+                      {acc.category === 'spp' ? 'SPP' : 'Uang Saku'}
+                    </span>
+                  </div>
+                  <div className="text-base font-mono font-bold text-slate-900 dark:text-white">{acc.accountNo}</div>
+                  <div className="text-xs text-slate-700">a/n <strong>{acc.accountHolder}</strong></div>
+                  <div className="text-[11px] text-slate-500 pt-1">
+                    Konfirmasi WA: {acc.contactName} ({acc.contactWa})
+                  </div>
                 </div>
               ))}
             </div>

@@ -4,8 +4,8 @@
   "description": "Portal Sistem Aplikasi Keuangan Santri Ma'had Imam Syafi'i Brebes - Cashless Santri, Kantin, Laundry, Wartel & SPP",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#064e3b",
-  "theme_color": "#059669",
+  "background_color": "#0284c7",
+  "theme_color": "#0284c7",
   "orientation": "portrait-primary",
   "icons": [
     {

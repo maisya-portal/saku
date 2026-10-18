@@ -3,24 +3,53 @@
 export const INITIAL_PESANTREN_INFO = {
   name: "Ma'had Imam Syafi'i Brebes",
   tagline: "Mencetak Generasi Rabbani Berdasarkan Al-Qur'an dan Sunnah",
-  address: "Jl. Raya Jatibarang - Brebes No. 12, Jawa Tengah",
-  phone: "0812-3456-7890",
-  whatsappAdmin: "6281234567890",
+  address: "Jalan Terusan Islamic Center Sigempol KM 03 Limbangan Wetan Brebes",
+  phone: "082119836050",
+  whatsappAdmin: "6282119836050",
+  staffGatePin: "991588",
   appBaseUrl: "https://isb-portal.web.app/",
+  rekeningUangSaku: {
+    bank: "Bank Syariah Indonesia (BSI)",
+    accountNo: "5221717173",
+    accountHolder: "Ponpes Imam Syafii Brebes",
+    code: "451",
+    purpose: "Uang Saku, Jajan Kantin, Laundry, Wartel & Tarik Tunai",
+    contactName: "Ustadz Firdhi",
+    contactWa: "6281949682554",
+    waRaw: "081949682554"
+  },
+  rekeningSPP: {
+    bank: "Bank Syariah Indonesia (BSI)",
+    accountNo: "6469965840",
+    accountHolder: "Yayasan Pendidikan Imam Syafi'i Brebes",
+    code: "451",
+    purpose: "Pembayaran SPP & Tagihan Pendidikan",
+    contactName: "Bapak Imawan",
+    contactWa: "62818275720",
+    waRaw: "0818275720"
+  },
   bankAccounts: [
     {
       bank: "Bank Syariah Indonesia (BSI)",
-      accountNo: "7198-2345-67",
-      accountHolder: "Ponpes Imam Syafi'i Brebes (Keuangan Santri)",
+      accountNo: "5221717173",
+      accountHolder: "Ponpes Imam Syafii Brebes",
       code: "451",
-      icon: "bsi"
+      category: "uang_saku",
+      label: "Rekening Uang Saku Santri",
+      purpose: "Jajan, Laundry, Wartel & Tarik Tunai",
+      contactName: "Ustadz Firdhi",
+      contactWa: "6281949682554"
     },
     {
-      bank: "Bank Muamalat",
-      accountNo: "541-0089-1234",
-      accountHolder: "Yayasan Imam Syafi'i Brebes",
-      code: "147",
-      icon: "muamalat"
+      bank: "Bank Syariah Indonesia (BSI)",
+      accountNo: "6469965840",
+      accountHolder: "Yayasan Pendidikan Imam Syafi'i Brebes",
+      code: "451",
+      category: "spp",
+      label: "Rekening SPP & Syahriyah",
+      purpose: "Pembayaran SPP & Biaya Pendidikan",
+      contactName: "Bapak Imawan",
+      contactWa: "62818275720"
     }
   ]
 };
@@ -39,6 +68,10 @@ export const INITIAL_SANTRI = [
     parentName: "H. Bambang Irawan",
     parentPhone: "081234567891",
     parentToken: "wali-fatih",
+    bindingLockCode: "BIND-ISB-FATIH-2024",
+    bindingStatus: "LOCKED",
+    isLocked: true,
+    fingerprintCode: "FP-ISB-FATIH-01",
     fingerprintStatus: "APPROVED",
     fingerprintRegisteredAt: "2026-10-10T08:00:00.000Z",
     fingerprintApprovedAt: "2026-10-10T08:30:00.000Z",
@@ -69,6 +102,10 @@ export const INITIAL_SANTRI = [
     parentName: "dr. Hendra Pratama",
     parentPhone: "081234567892",
     parentToken: "wali-hendra", // Has 2 children (Abdullah & Hamzah)
+    bindingLockCode: "BIND-ISB-HENDRA-2024",
+    bindingStatus: "LOCKED",
+    isLocked: true,
+    fingerprintCode: "FP-ISB-HENDRA-01",
     fingerprintStatus: "APPROVED",
     fingerprintRegisteredAt: "2026-10-11T09:00:00.000Z",
     fingerprintApprovedAt: "2026-10-11T09:15:00.000Z",
@@ -99,6 +136,10 @@ export const INITIAL_SANTRI = [
     parentName: "dr. Hendra Pratama",
     parentPhone: "081234567892",
     parentToken: "wali-hendra", // Sibling of Abdullah
+    bindingLockCode: "BIND-ISB-HENDRA-2024",
+    bindingStatus: "LOCKED",
+    isLocked: true,
+    fingerprintCode: "FP-ISB-HENDRA-01",
     fingerprintStatus: "APPROVED",
     fingerprintRegisteredAt: "2026-10-11T09:00:00.000Z",
     fingerprintApprovedAt: "2026-10-11T09:15:00.000Z",
@@ -129,6 +170,10 @@ export const INITIAL_SANTRI = [
     parentName: "H. Ahmad Fauzi",
     parentPhone: "081234567893",
     parentToken: "wali-fauzi",
+    bindingLockCode: "BIND-ISB-FAUZI-2024",
+    bindingStatus: "PENDING_APPROVAL",
+    isLocked: false,
+    fingerprintCode: "FP-ISB-FAUZI-01",
     fingerprintStatus: "PENDING_APPROVAL",
     fingerprintRegisteredAt: "2026-10-15T14:30:00.000Z",
     fingerprintApprovedAt: null,

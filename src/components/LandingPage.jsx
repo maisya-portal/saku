@@ -56,8 +56,48 @@ export default function LandingPage({ onSelectRole }) {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedResult, setGeneratedResult] = useState(null);
-  const [copied, setCopied] = useState(false);
   const [showStaffModal, setShowStaffModal] = useState(false);
+  const [staffPinGateOpen, setStaffPinGateOpen] = useState(false);
+  const [staffPinInput, setStaffPinInput] = useState('');
+  const [staffPinError, setStaffPinError] = useState('');
+
+  const handleOpenStaffGate = () => {
+    setStaffPinGateOpen(true);
+    setStaffPinInput('');
+    setStaffPinError('');
+  };
+
+  const handleStaffPinDigit = (digit) => {
+    if (staffPinInput.length < 6) {
+      playSound('beep');
+      const next = staffPinInput + digit;
+      setStaffPinInput(next);
+      setStaffPinError('');
+      if (next.length === 6) {
+        if (next === (pesantrenInfo.staffGatePin || '991588')) {
+          playSound('success');
+          setStaffPinGateOpen(false);
+          setShowStaffModal(true);
+          setStaffPinInput('');
+        } else {
+          playSound('error');
+          setStaffPinError('PIN Akses Petugas Salah! (Gunakan PIN resmi: 991588)');
+          setStaffPinInput('');
+        }
+      }
+    }
+  };
+
+  const handleStaffPinBackspace = () => {
+    setStaffPinInput(prev => prev.slice(0, -1));
+    setStaffPinError('');
+    playSound('beep');
+  };
+
+  const handleStaffPinClear = () => {
+    setStaffPinInput('');
+    setStaffPinError('');
+  };
 
   // Add more children
   const handleAddChild = () => {
@@ -111,7 +151,7 @@ export default function LandingPage({ onSelectRole }) {
 
       confetti({ particleCount: 80, spread: 70 });
 
-      // Construct official WhatsApp message
+      // Construct official WhatsApp message with binding lock and PIN
       const childSummary = validChildren
         .map((c, i) => `  ${i + 1}. *${c.name.trim()}* (Nomor ISB: *${c.isb.trim()}*)`)
         .join('\n');
@@ -119,14 +159,18 @@ export default function LandingPage({ onSelectRole }) {
       const waMessage = 
         `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
         `Kepada Yth. Bapak/Ibu *${result.parentName}*\n` +
-        `Berikut adalah Tautan Akses Resmi (Magic Link) Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes untuk ananda:\n\n` +
+        `Berikut adalah Data Registrasi Resmi & Tautan Akses Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
         `${childSummary}\n\n` +
-        `Klik tautan di bawah ini untuk masuk ke portal:\n` +
+        `🔐 Kode Gembok Database: *${result.bindingLockCode}*\n` +
+        `🔑 PIN Masuk Otomatis: *${result.generatedPin}* (Disimpan untuk cadangan darurat)\n\n` +
+        `Klik tautan di bawah ini untuk mendaftarkan sidik jari Anda:\n` +
         `${result.fullLink}\n\n` +
-        `Tahap Selanjutnya:\n` +
-        `1. Klik tautan di atas\n` +
-        `2. Daftarkan sidik jari Anda di layar HP/tablet\n` +
-        `3. Setelah disetujui Admin, Anda dapat memantau saldo & membatasi jajan ananda secara realtime.\n\n` +
+        `Tahapan Akses:\n` +
+        `1. Buka tautan di atas melalui browser HP/tablet Anda\n` +
+        `2. Rekam sidik jari fisik Anda pada layar sentuh\n` +
+        `3. Admin Ma'had akan menyetujui akun Anda agar tautan login sidik jari resmi aktif.\n\n` +
+        `Alamat: ${pesantrenInfo.address}\n` +
+        `WhatsApp Admin: ${pesantrenInfo.phone}\n` +
         `Jazakumullahu khairan.`;
 
       // Open WhatsApp directly via wa.me / app protocol
@@ -191,13 +235,13 @@ export default function LandingPage({ onSelectRole }) {
 
           <div className="flex items-center gap-3 shrink-0">
             <a 
-              href={`https://wa.me/${pesantrenInfo.whatsappAdmin}`} 
+              href="https://wa.me/6282119836050" 
               target="_blank" 
               rel="noreferrer"
               className="hover:underline flex items-center gap-1 font-semibold hidden md:inline-flex"
             >
               <Phone className="w-3 h-3" />
-              <span>Bantuan Bendahara: +{pesantrenInfo.whatsappAdmin}</span>
+              <span>Bantuan Admin: 082119836050</span>
             </a>
 
             <button
@@ -227,9 +271,11 @@ export default function LandingPage({ onSelectRole }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Logo & Identity */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-600 to-sky-400 text-white flex items-center justify-center shadow-md shadow-sky-500/25">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
+            <img
+              src="./logo-maisya.jpg"
+              alt="Logo Ma'had Imam Syafi'i Brebes"
+              className="w-10 h-10 rounded-2xl object-cover border border-sky-300 dark:border-sky-800 shadow-md shadow-sky-500/25 shrink-0"
+            />
             <div>
               <div className="text-base sm:text-lg font-black tracking-tight flex items-center gap-1.5 text-slate-900 dark:text-white">
                 <span>Maisya-Saku</span>
@@ -263,9 +309,9 @@ export default function LandingPage({ onSelectRole }) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setShowStaffModal(true)}
+              onClick={handleOpenStaffGate}
               className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              title="Akses Petugas Bendahara, Kantin, Laundry & Wartel"
+              title="Akses Petugas Dilindungi PIN 991588"
             >
               <KeyRound className="w-3.5 h-3.5 text-sky-500" />
               <span className="hidden sm:inline">Akses Petugas</span>
@@ -323,7 +369,7 @@ export default function LandingPage({ onSelectRole }) {
 
               <button
                 type="button"
-                onClick={() => setShowStaffModal(true)}
+                onClick={handleOpenStaffGate}
                 className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
               >
                 <KeyRound className="w-4 h-4 text-sky-500" />
@@ -850,7 +896,7 @@ export default function LandingPage({ onSelectRole }) {
         </div>
       </section>
 
-      {/* 8. REKENING RESMI PESANTREN (TRANSPARANSI TOP-UP) */}
+      {/* 8. REKENING RESMI PESANTREN (TRANSPARANSI TOP-UP & SPP) */}
       <section id="rekening" className="py-14 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
@@ -861,33 +907,82 @@ export default function LandingPage({ onSelectRole }) {
               Rekening Resmi {pesantrenInfo.name}
             </h2>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Pengisian saldo dan pembayaran SPP hanya ditujukan ke rekening resmi yayasan di bawah ini untuk menghindari penipuan.
+              Pengisian saldo uang saku santri dan pembayaran SPP dipisahkan ke rekening resmi masing-masing untuk menjaga akuntabilitas keuangan syariah.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
-            {pesantrenInfo.bankAccounts && pesantrenInfo.bankAccounts.map((acc, idx) => (
-              <div 
-                key={idx}
-                className="p-5 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2 shadow-xs"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-sky-500" />
-                    <span>{acc.bank}</span>
-                  </div>
-                  <span className="text-[10px] bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded font-bold">
-                    Kode: {acc.code}
-                  </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+            {/* Rekening 1: Uang Saku Santri */}
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border-2 border-sky-200 dark:border-sky-800/60 space-y-4 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase px-3 py-1 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-700">
+                  Rekening Uang Saku Santri
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-500">
+                  Kode Bank: 451
+                </span>
+              </div>
+
+              <div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Bank Syariah Indonesia (BSI)</div>
+                <div className="text-2xl font-mono font-black text-sky-700 dark:text-sky-400 tracking-wider select-all mt-1">
+                  5221717173
                 </div>
-                <div className="font-mono text-base font-black text-sky-700 dark:text-sky-400 select-all">
-                  {acc.accountNo}
-                </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  a.n. <strong className="text-slate-700 dark:text-slate-200">{acc.accountHolder}</strong>
+                <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
+                  a.n. <span className="text-slate-900 dark:text-white font-bold">Ponpes Imam Syafii Brebes</span>
                 </div>
               </div>
-            ))}
+
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <strong>Peruntukan:</strong> Jajan Kantin, Laundry, Telepon/Wartel, & Tarik Tunai
+              </div>
+
+              <a
+                href="https://wa.me/6281949682554"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Konfirmasi Uang Saku: 081949682554 (Ustadz Firdhi)</span>
+              </a>
+            </div>
+
+            {/* Rekening 2: SPP & Pendidikan */}
+            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border-2 border-purple-200 dark:border-purple-800/60 space-y-4 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
+                  Rekening SPP & Pendidikan
+                </span>
+                <span className="text-xs font-mono font-bold text-slate-500">
+                  Kode Bank: 451
+                </span>
+              </div>
+
+              <div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Bank Syariah Indonesia (BSI)</div>
+                <div className="text-2xl font-mono font-black text-purple-700 dark:text-purple-400 tracking-wider select-all mt-1">
+                  6469965840
+                </div>
+                <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
+                  a.n. <span className="text-slate-900 dark:text-white font-bold">Yayasan Pendidikan Imam Syafi'i Brebes</span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
+                <strong>Peruntukan:</strong> Pembayaran SPP Bulanan, Syahriyah, & Biaya Pendidikan
+              </div>
+
+              <a
+                href="https://wa.me/62818275720"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Konfirmasi SPP: 0818275720 (Bapak Imawan)</span>
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -898,9 +993,11 @@ export default function LandingPage({ onSelectRole }) {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="md:col-span-2 space-y-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center font-bold">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
+                <img
+                  src="./logo-maisya.jpg"
+                  alt="Logo Maisya"
+                  className="w-8 h-8 rounded-xl object-cover border border-sky-400"
+                />
                 <span className="font-black text-base text-slate-900 dark:text-white">
                   Maisya-Saku
                 </span>
@@ -913,10 +1010,17 @@ export default function LandingPage({ onSelectRole }) {
             <div className="space-y-2">
               <div className="font-bold text-slate-900 dark:text-white">Alamat Ma'had</div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                {pesantrenInfo.address}
+                Jalan Terusan Islamic Center Sigempol KM 03 Limbangan Wetan Brebes
               </p>
-              <div className="text-xs text-slate-500 dark:text-slate-400 pt-1">
-                WhatsApp: +{pesantrenInfo.whatsappAdmin}
+              <div className="text-xs pt-1">
+                <a 
+                  href="https://wa.me/6282119836050" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="text-sky-600 dark:text-sky-400 font-bold hover:underline"
+                >
+                  WhatsApp Admin: 082119836050
+                </a>
               </div>
             </div>
 
@@ -926,11 +1030,11 @@ export default function LandingPage({ onSelectRole }) {
                 <li>
                   <button 
                     type="button"
-                    onClick={() => setShowStaffModal(true)}
-                    className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+                    onClick={handleOpenStaffGate}
+                    className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 font-bold"
                   >
                     <KeyRound className="w-3 h-3" />
-                    <span>Login Petugas & Bendahara</span>
+                    <span>Login Petugas & Bendahara (PIN: 991588)</span>
                   </button>
                 </li>
                 <li>
@@ -954,14 +1058,100 @@ export default function LandingPage({ onSelectRole }) {
         </div>
       </footer>
 
-      {/* MODAL: STAFF & ADMIN ACCESS */}
+      {/* MODAL 1: STAFF GATE PIN PROTECTION (PIN: 991588) */}
+      {staffPinGateOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-sky-500" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Gerbang Akses Petugas</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStaffPinGateOpen(false)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-center space-y-1">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                Tombol ini dilindungi. Masukkan <strong>6-digit PIN Petugas</strong> untuk membuka menu peran operasional:
+              </p>
+            </div>
+
+            {staffPinError && (
+              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-xs text-center font-bold">
+                {staffPinError}
+              </div>
+            )}
+
+            {/* PIN Dots Indicator */}
+            <div className="flex justify-center items-center gap-2.5 my-3">
+              {[0, 1, 2, 3, 4, 5].map((idx) => (
+                <div
+                  key={idx}
+                  className={`w-3.5 h-3.5 rounded-full transition-all duration-150 ${
+                    idx < staffPinInput.length
+                      ? 'bg-sky-500 scale-125 shadow-sm shadow-sky-500/50'
+                      : 'bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Keypad 0-9 */}
+            <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => handleStaffPinDigit(String(num))}
+                  className="py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-base font-bold text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs transition-all select-none"
+                >
+                  {num}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={handleStaffPinClear}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-[11px] font-bold text-slate-500 dark:text-slate-400 rounded-xl transition-all"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStaffPinDigit('0')}
+                className="py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-base font-bold text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs transition-all select-none"
+              >
+                0
+              </button>
+              <button
+                type="button"
+                onClick={handleStaffPinBackspace}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-[11px] font-bold text-slate-500 dark:text-slate-400 rounded-xl transition-all"
+              >
+                ⌫ Hapus
+              </button>
+            </div>
+
+            <div className="text-[10px] text-center text-slate-400 pt-1">
+              Petugas resmi Ma'had Imam Syafi'i Brebes
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: STAFF & ADMIN ACCESS (UNLOCKED AFTER PIN 991588) */}
       {showStaffModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-sky-500" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Akses Petugas & Admin</h3>
+                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Pilih Peran Petugas</h3>
               </div>
               <button
                 type="button"
@@ -973,7 +1163,7 @@ export default function LandingPage({ onSelectRole }) {
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Pilih peran akun petugas Anda untuk masuk ke sistem:
+              Pilih akun tugas operasional Anda:
             </p>
 
             {/* Quick Staff Roles List */}
@@ -1004,7 +1194,7 @@ export default function LandingPage({ onSelectRole }) {
             </div>
 
             <div className="text-[10px] text-center text-slate-400 dark:text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
-              Setiap login petugas dilindungi dengan PIN & Biometrik Touchscreen
+              Setiap sesi petugas dilindungi PIN & Sidik Jari Touchscreen
             </div>
           </div>
         </div>

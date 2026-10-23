@@ -124,7 +124,7 @@ export default function RolePetugasKantin() {
     setCheckoutError('');
 
     // Wajib Biometrik Santri Terverifikasi untuk Transaksi Keuangan
-    if (santri.biometricStatus !== 'APPROVED' && !santri.biometricRegistered) {
+    if (santri.biometricStatus !== 'APPROVED' || !santri.biometricCode) {
       setCheckoutError(`TRANSAKSI DITOLAK! Biometrik ananda ${santri.name} BELUM TERDAFTAR / BELUM TERVERIFIKASI. Belanja di kantin santri wajib menggunakan verifikasi biometrik santri.`);
       playSound('error');
       return;
@@ -143,7 +143,7 @@ export default function RolePetugasKantin() {
   // Proceed to Biometric Touch
   const handleProceedToBiometric = () => {
     if (!selectedSantri) return;
-    if (selectedSantri.biometricStatus !== 'APPROVED' && !selectedSantri.biometricRegistered) {
+    if (selectedSantri.biometricStatus !== 'APPROVED' || !selectedSantri.biometricCode) {
       setCheckoutError(`Biometrik ${selectedSantri.name} belum terdaftar. Harap daftarkan biometrik terlebih dahulu.`);
       return;
     }
@@ -558,7 +558,7 @@ export default function RolePetugasKantin() {
                   </div>
                 </div>
 
-                {selectedSantri && selectedSantri.biometricStatus !== 'APPROVED' && !selectedSantri.biometricRegistered && (
+                {selectedSantri && selectedSantri.biometricStatus !== 'APPROVED' || !selectedSantri.biometricCode && (
                   <button
                     type="button"
                     onClick={() => setIsRegisteringSantriBiometric(true)}

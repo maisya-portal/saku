@@ -151,19 +151,34 @@ export default function RoleAdminBendahara() {
     santriList.forEach(s => {
       if (!s.parentToken) return;
       if (!map.has(s.parentToken)) {
+        const isApproved = Boolean(
+          s.isApproved || 
+          s.bindingStatus === 'LOCKED' || 
+          s.bindingStatus === 'APPROVED' || 
+          s.isLocked ||
+          s.waliApprovedAt ||
+          s.fingerprintStatus === 'APPROVED'
+        );
+        const isRejected = s.bindingStatus === 'REJECTED' || s.fingerprintStatus === 'REJECTED';
+        const bindingStatus = isRejected ? 'REJECTED' : isApproved ? 'LOCKED' : 'PENDING_APPROVAL';
+
         map.set(s.parentToken, {
           parentToken: s.parentToken,
           parentName: s.parentName || 'Wali Santri',
           parentPhone: s.parentPhone || '',
           bindingLockCode: s.bindingLockCode || `BIND-ISB-${s.parentToken.toUpperCase()}`,
-          bindingStatus: s.bindingStatus || (s.fingerprintStatus === 'APPROVED' ? 'LOCKED' : 'PENDING_APPROVAL'),
-          isLocked: s.isLocked ?? (s.fingerprintStatus === 'APPROVED'),
+          bindingStatus,
+          isLocked: isApproved,
+          isApproved,
+          isRejected,
+          isPending: !isApproved && !isRejected,
           fingerprintCode: s.fingerprintCode || null,
-          pin: s.pin || '1234',
-          fingerprintStatus: s.fingerprintStatus || 'NOT_REGISTERED',
+          pin: s.pin || s.parentPassword || '1234',
+          parentPassword: s.parentPassword || s.password || s.pin || '1234',
+          fingerprintStatus: isApproved ? 'APPROVED' : isRejected ? 'REJECTED' : 'PENDING_APPROVAL',
           fingerprintRegisteredAt: s.fingerprintRegisteredAt || null,
-          fingerprintApprovedAt: s.fingerprintApprovedAt || null,
-          fingerprintApprovalNote: s.fingerprintApprovalNote || null,
+          fingerprintApprovedAt: s.waliApprovedAt || s.fingerprintApprovedAt || null,
+          fingerprintApprovalNote: s.waliApprovalNote || s.fingerprintApprovalNote || null,
           children: []
         });
       }
@@ -172,9 +187,9 @@ export default function RoleAdminBendahara() {
     return Array.from(map.values());
   }, [santriList]);
 
-  const pendingBiometricCount = waliBiometricList.filter(w => w.fingerprintStatus === 'PENDING_APPROVAL').length;
-  const unapprovedWaliCount = waliBiometricList.filter(w => w.fingerprintStatus !== 'APPROVED').length;
-  const rejectedWaliCount = waliBiometricList.filter(w => w.fingerprintStatus === 'REJECTED').length;
+  const pendingBiometricCount = waliBiometricList.filter(w => w.isPending).length;
+  const unapprovedWaliCount = waliBiometricList.filter(w => !w.isApproved).length;
+  const rejectedWaliCount = waliBiometricList.filter(w => w.isRejected).length;
   const staffAccounts = useMemo(() => roleAccounts.filter(r => r.role !== 'admin'), [roleAccounts]);
   const pendingStaffCount = staffAccounts.filter(s => s.biometricStatus === 'PENDING_APPROVAL').length;
 
@@ -360,7 +375,7 @@ export default function RoleAdminBendahara() {
   // Filtered Santri for Dedicated Biometric Tab
   const filteredBiometricSantri = useMemo(() => {
     return santriList.filter(s => {
-      const isRegistered = s.biometricStatus === 'APPROVED' || s.biometricRegistered;
+      const isRegistered = Boolean(s.biometricStatus === 'APPROVED' && (s.biometricRegistered || s.biometricCode));
       const hasWali = Boolean(s.parentToken);
 
       if (santriBiometricFilter === 'unregistered' && isRegistered) return false;
@@ -509,7 +524,7 @@ export default function RoleAdminBendahara() {
           <Fingerprint className="w-4 h-4" />
           <span>Biometrik Santri</span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            {santriList.filter(s => s.biometricStatus === 'APPROVED' || s.biometricRegistered).length}/{santriList.length}
+            {santriList.filter(s => s.biometricStatus === 'APPROVED' && Boolean(s.biometricCode)).length}/{santriList.length}
           </span>
         </button>
 
@@ -1659,7 +1674,7 @@ export default function RoleAdminBendahara() {
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      {s.biometricStatus === 'APPROVED' || s.biometricRegistered ? (
+                      {s.biometricStatus === 'APPROVED' && Boolean(s.biometricCode) ? (
                         <div className="flex items-center gap-1.5">
                           <span className="bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                             <span>✓ Terverifikasi</span>
@@ -2033,12 +2048,12 @@ export default function RoleAdminBendahara() {
                 <span className="bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <Fingerprint className="w-3.5 h-3.5" />
                   <span>
-                    {santriList.filter(s => s.biometricStatus === 'APPROVED' || s.biometricRegistered).length} / {santriList.length} Santri Terdaftar
+                    {santriList.filter(s => s.biometricStatus === 'APPROVED' && Boolean(s.biometricCode)).length} / {santriList.length} Santri Terdaftar
                   </span>
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Khusus untuk <strong>pendaftaran, scanning sensor sidik jari, edit kode biometrik, dan reset data biometrik santri</strong> untuk verifikasi transaksi belanja bebas tunai di ma'had. Biometrik santri hanya dapat didaftarkan jika santri telah memiliki akun wali santri.
+                Khusus untuk <strong>pendaftaran, scanning sensor sidik jari, edit kode biometrik, dan reset data biometrik santri</strong> oleh akun Admin. Sidik jari hanya dapat aktif jika telah direkam & diverifikasi resmi oleh Admin di pondok.
               </p>
             </div>
 
@@ -2100,7 +2115,7 @@ export default function RoleAdminBendahara() {
             >
               <span>Belum Rekam</span>
               <span className="bg-amber-400 text-slate-950 text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                {santriList.filter(s => s.biometricStatus !== 'APPROVED' && !s.biometricRegistered).length}
+                {santriList.filter(s => s.biometricStatus !== 'APPROVED' || !s.biometricCode).length}
               </span>
             </button>
 
@@ -2115,7 +2130,7 @@ export default function RoleAdminBendahara() {
             >
               <span>Terverifikasi Biometrik</span>
               <span className="bg-emerald-700 text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
-                {santriList.filter(s => s.biometricStatus === 'APPROVED' || s.biometricRegistered).length}
+                {santriList.filter(s => s.biometricStatus === 'APPROVED' && Boolean(s.biometricCode)).length}
               </span>
             </button>
 
@@ -2177,7 +2192,7 @@ export default function RoleAdminBendahara() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredBiometricSantri.map((s) => {
-                    const isRegistered = s.biometricStatus === 'APPROVED' || s.biometricRegistered;
+                    const isRegistered = Boolean(s.biometricStatus === 'APPROVED' && (s.biometricRegistered || s.biometricCode));
                     const hasWali = Boolean(s.parentToken);
 
                     return (
@@ -2234,7 +2249,7 @@ export default function RoleAdminBendahara() {
                               </span>
                               <div>
                                 <span className="font-mono text-[11px] font-bold text-sky-800 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/80 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800">
-                                  {s.biometricCode || s.fingerprintCode || 'FP-ISB-REGISTERED'}
+                                  {s.biometricCode}
                                 </span>
                               </div>
                             </div>
@@ -2244,16 +2259,14 @@ export default function RoleAdminBendahara() {
                                 <span>Belum Rekam Biometrik</span>
                               </span>
                               <div className="text-[10px] text-slate-400 mt-0.5">
-                                Perlu scan sidik jari layar
+                                Perlu scan sidik jari layar oleh Admin
                               </div>
                             </div>
                           )}
                         </td>
 
                         <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
-                          {s.fingerprintApprovedAt 
-                            ? formatDateTime(s.fingerprintApprovedAt) 
-                            : s.biometricRegisteredAt 
+                          {isRegistered && s.biometricRegisteredAt 
                             ? formatDateTime(s.biometricRegisteredAt) 
                             : '-'}
                         </td>
@@ -2325,7 +2338,7 @@ export default function RoleAdminBendahara() {
             /* BIOMETRIC CARDS VIEW */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredBiometricSantri.map((s) => {
-                const isRegistered = s.biometricStatus === 'APPROVED' || s.biometricRegistered;
+                const isRegistered = Boolean(s.biometricStatus === 'APPROVED' && (s.biometricRegistered || s.biometricCode));
                 const hasWali = Boolean(s.parentToken);
 
                 return (
@@ -2388,7 +2401,7 @@ export default function RoleAdminBendahara() {
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-850">
                         <span className="text-slate-500">Kode Sidik Jari:</span>
                         <span className="font-mono font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/80 px-2 py-0.5 rounded text-[11px]">
-                          {s.biometricCode || s.fingerprintCode || 'Belum Rekam'}
+                          {isRegistered ? (s.biometricCode || 'Aktif') : 'Belum Rekam'}
                         </span>
                       </div>
                     </div>
@@ -3809,17 +3822,14 @@ export default function RoleAdminBendahara() {
 
             <BiometricTouchPad
               santriName={`${selectedSantriForBiometric.name} (${selectedSantriForBiometric.class || 'Santri'})`}
-              title="Pendaftaran Biometrik Santri"
-              subtitle="Sentuhkan jari santri pada sensor layar tablet / perangkat fingerprint untuk merekam sidik jari resmi pondok"
+              title="Perekaman & Verifikasi Biometrik Santri oleh Admin"
+              subtitle="Sentuhkan jari santri pada sensor layar tablet / perangkat fingerprint untuk merekam & memverifikasi sidik jari resmi ma'had"
               isEnrollment={true}
               onVerified={async (method, code) => {
                 await registerSantriBiometric(selectedSantriForBiometric.id, {
                   method,
                   biometricCode: code
                 });
-                if (selectedSantriForBiometric.parentToken) {
-                  await approveFingerprint(selectedSantriForBiometric.parentToken);
-                }
                 confetti({ particleCount: 75, spread: 60 });
                 setSelectedSantriForBiometric(null);
               }}

@@ -55,7 +55,7 @@ export default function RolePetugasLaundry() {
     setSelectedSantri(santri);
     setErrorMsg('');
 
-    if (santri.biometricStatus !== 'APPROVED' && !santri.biometricRegistered) {
+    if (santri.biometricStatus !== 'APPROVED' || !santri.biometricCode) {
       setErrorMsg(`TRANSAKSI DITOLAK! Biometrik ananda ${santri.name} belum terdaftar / belum terverifikasi. Transaksi laundry santri wajib menggunakan verifikasi biometrik.`);
       playSound('error');
       return;

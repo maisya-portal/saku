@@ -308,7 +308,7 @@ export default function RoleWaliSantri() {
                     <div className="overflow-hidden flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <span className="truncate text-sm font-bold">{child.name}</span>
-                        {child.biometricStatus === 'APPROVED' || child.biometricRegistered ? (
+                        {child.biometricStatus === 'APPROVED' && Boolean(child.biometricCode) ? (
                           <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">
                             ✓ Biometrik
                           </span>
@@ -346,7 +346,7 @@ export default function RoleWaliSantri() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-white text-sm">{currentChild.name}</span>
-                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                    {currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode) ? (
                       <span className="text-[10px] font-bold text-emerald-200 bg-emerald-900/80 px-2 py-0.5 rounded-full border border-emerald-400/40">
                         ✓ Biometrik Aktif
                       </span>
@@ -466,14 +466,14 @@ export default function RoleWaliSantri() {
 
           {/* STATUS PENDAFTARAN BIOMETRIK SANTRI (WAJIB BIOMETRIK UNTUK TRANSAKSI KEUANGAN) */}
           <div className={`rounded-3xl p-6 border shadow-sm transition-all ${
-            currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered
+            currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode)
               ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border-emerald-400/40 dark:border-emerald-500/30'
               : 'bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-orange-500/10 border-amber-400/50 dark:border-amber-500/40'
           }`}>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-3.5">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
-                  currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered
+                  currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode)
                     ? 'bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-500/20'
                     : 'bg-amber-500 text-white border-amber-400 shadow-md shadow-amber-500/20 animate-pulse'
                 }`}>
@@ -484,7 +484,7 @@ export default function RoleWaliSantri() {
                     <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Biometrik Santri • Otorisasi Transaksi
                     </span>
-                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                    {currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode) ? (
                       <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2.5 py-0.5 rounded-full text-xs font-bold">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>SUDAH TERDAFTAR & TERVERIFIKASI</span>
@@ -498,13 +498,13 @@ export default function RoleWaliSantri() {
                   </div>
 
                   <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1">
-                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered
+                    {currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode)
                       ? `Izin Transaksi Biometrik: Aktif (An. ${currentChild.name})`
                       : `Pendaftaran Biometrik Santri (An. ${currentChild.name})`}
                   </h3>
 
                   <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
-                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                    {currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode) ? (
                       <>
                         Alhamdulillah, biometrik ananda telah terdaftar dan terverifikasi resmi oleh Admin Ma'had (Kode: <code className="font-mono font-bold text-sky-700 dark:text-sky-300">{currentChild.biometricCode || `FP-SAN-${currentChild.nis}`}</code>). Ananda kini dapat melakukan transaksi keuangan non-tunai di <strong>Kantin Santri</strong>, <strong>Laundry</strong>, dan <strong>Wartel</strong> dengan otorisasi sidik jari.
                       </>
@@ -519,7 +519,7 @@ export default function RoleWaliSantri() {
 
               {/* Status Info for Wali */}
               <div className="flex items-center gap-2 self-start md:self-center shrink-0">
-                {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                {currentChild.biometricStatus === 'APPROVED' && Boolean(currentChild.biometricCode) ? (
                   <span className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Terverifikasi di Pondok</span>

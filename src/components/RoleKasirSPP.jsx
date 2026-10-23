@@ -32,7 +32,7 @@ export default function RoleKasirSPP() {
   const santriBills = sppBills.filter(b => b.santriNis === selectedSantri?.nis);
 
   const handleStartPayment = (bill) => {
-    if (selectedSantri.biometricStatus !== 'APPROVED' && !selectedSantri.biometricRegistered) {
+    if (selectedSantri.biometricStatus !== 'APPROVED' || !selectedSantri.biometricCode) {
       showToast(`Pembayaran ditolak: Biometrik ${selectedSantri.name} belum terdaftar/terverifikasi!`, 'error');
       playSound('error');
       return;

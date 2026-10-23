@@ -949,15 +949,26 @@ export function AppProvider({ children }) {
 
   // SUPER ADMIN: Add Santri
   const addSantri = useCallback(async (newSantri) => {
-    const updated = [...santriList, newSantri];
+    const santriDoc = {
+      biometricStatus: 'NOT_REGISTERED',
+      biometricRegistered: false,
+      biometricCode: null,
+      biometricRegisteredAt: null,
+      biometricRegisteredBy: null,
+      fingerprintStatus: 'NOT_REGISTERED',
+      fingerprintCode: null,
+      fingerprintApprovedAt: null,
+      ...newSantri
+    };
+    const updated = [...santriList, santriDoc];
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('success');
-    showToast(`Santri "${newSantri.name}" berhasil didaftarkan!`, 'success');
+    showToast(`Santri "${santriDoc.name}" berhasil didaftarkan!`, 'success');
 
     if (!isDemoMode() && db) {
       try {
-        await setDoc(doc(db, 'santri', newSantri.id), newSantri);
+        await setDoc(doc(db, 'santri', santriDoc.id), santriDoc);
       } catch (err) {
         console.error('Error adding santri to firestore:', err);
       }
@@ -1117,6 +1128,12 @@ export function AppProvider({ children }) {
           bindingLockCode,
           bindingStatus: 'PENDING_APPROVAL',
           isLocked: false,
+          isApproved: false,
+          biometricStatus: 'NOT_REGISTERED',
+          biometricRegistered: false,
+          biometricCode: null,
+          biometricRegisteredAt: null,
+          biometricRegisteredBy: null,
           fingerprintStatus: 'NOT_REGISTERED',
           fingerprintRegisteredAt: null,
           fingerprintApprovedAt: null,
@@ -1146,6 +1163,12 @@ export function AppProvider({ children }) {
           bindingLockCode,
           bindingStatus: 'PENDING_APPROVAL',
           isLocked: false,
+          isApproved: false,
+          biometricStatus: 'NOT_REGISTERED',
+          biometricRegistered: false,
+          biometricCode: null,
+          biometricRegisteredAt: null,
+          biometricRegisteredBy: null,
           fingerprintStatus: 'NOT_REGISTERED',
           fingerprintRegisteredAt: null,
           fingerprintApprovedAt: null,
@@ -1250,20 +1273,18 @@ export function AppProvider({ children }) {
     return fingerprintCode;
   }, [santriList, broadcastState, showToast]);
 
-  // SUPER ADMIN: Setujui (Approve) Biometrik & Kunci Data Permanen (Anti-Ganda)
+  // SUPER ADMIN: Setujui (Approve) Akun Wali Santri & Kunci Data Permanen (Anti-Ganda)
   const approveFingerprint = useCallback(async (parentToken) => {
     const nowIso = new Date().toISOString();
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
-        const fpCode = s.fingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
         return {
           ...s,
-          fingerprintCode: fpCode,
-          fingerprintStatus: 'APPROVED',
           bindingStatus: 'LOCKED',
           isLocked: true,
-          fingerprintApprovedAt: nowIso,
-          fingerprintApprovalNote: 'Disetujui dan Data Terkunci Resmi oleh Admin Ma\'had'
+          isApproved: true,
+          waliApprovedAt: nowIso,
+          waliApprovalNote: 'Disetujui dan Data Terkunci Resmi oleh Admin Ma\'had'
         };
       }
       return s;
@@ -1271,7 +1292,7 @@ export function AppProvider({ children }) {
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('success');
-    showToast('Sidik jari disetujui & data wali-santri resmi aktif!', 'success');
+    showToast('Akun wali santri berhasil disetujui & resmi aktif!', 'success');
 
     // Sync to Firestore
     if (!isDemoMode() && db) {
@@ -1279,34 +1300,31 @@ export function AppProvider({ children }) {
         const matches = updated.filter(s => s.parentToken === parentToken);
         for (const item of matches) {
           await updateDoc(doc(db, 'santri', item.id), {
-            fingerprintCode: item.fingerprintCode,
-            fingerprintStatus: 'APPROVED',
             bindingStatus: 'LOCKED',
             isLocked: true,
-            fingerprintApprovedAt: nowIso,
-            fingerprintApprovalNote: 'Disetujui dan Data Terkunci Resmi oleh Admin Ma\'had'
+            isApproved: true,
+            waliApprovedAt: nowIso,
+            waliApprovalNote: 'Disetujui dan Data Terkunci Resmi oleh Admin Ma\'had'
           });
         }
       } catch (err) {
-        console.error('Error approving FP on Firestore:', err);
+        console.error('Error approving wali account on Firestore:', err);
       }
     }
   }, [santriList, broadcastState, showToast]);
 
-  // SUPER ADMIN: Setujui Semua Permohonan Biometrik Wali Santri Sekaligus (Batch)
+  // SUPER ADMIN: Setujui Semua Permohonan Akun Wali Santri Sekaligus (Batch)
   const approveAllPendingFingerprints = useCallback(async () => {
     const nowIso = new Date().toISOString();
     const updated = santriList.map(s => {
-      if (s.parentToken && s.fingerprintStatus !== 'APPROVED') {
-        const fpCode = s.fingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (s.parentToken && s.bindingStatus !== 'LOCKED') {
         return {
           ...s,
-          fingerprintCode: fpCode,
-          fingerprintStatus: 'APPROVED',
           bindingStatus: 'LOCKED',
           isLocked: true,
-          fingerprintApprovedAt: nowIso,
-          fingerprintApprovalNote: 'Disetujui Masal oleh Admin Ma\'had'
+          isApproved: true,
+          waliApprovedAt: nowIso,
+          waliApprovalNote: 'Disetujui Masal oleh Admin Ma\'had'
         };
       }
       return s;
@@ -1314,36 +1332,36 @@ export function AppProvider({ children }) {
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('success');
-    showToast('Seluruh permohonan biometrik wali santri berhasil disetujui!', 'success');
+    showToast('Seluruh akun wali santri berhasil disetujui!', 'success');
 
     if (!isDemoMode() && db) {
       try {
-        const matches = updated.filter(s => s.parentToken && s.fingerprintStatus === 'APPROVED');
+        const matches = updated.filter(s => s.parentToken && s.bindingStatus === 'LOCKED');
         for (const item of matches) {
           await updateDoc(doc(db, 'santri', item.id), {
-            fingerprintCode: item.fingerprintCode,
-            fingerprintStatus: 'APPROVED',
             bindingStatus: 'LOCKED',
             isLocked: true,
-            fingerprintApprovedAt: nowIso,
-            fingerprintApprovalNote: 'Disetujui Masal oleh Admin Ma\'had'
+            isApproved: true,
+            waliApprovedAt: nowIso,
+            waliApprovalNote: 'Disetujui Masal oleh Admin Ma\'had'
           });
         }
       } catch (err) {
-        console.error('Error batch approving FP:', err);
+        console.error('Error batch approving wali accounts:', err);
       }
     }
   }, [santriList, broadcastState, showToast]);
 
-  // SUPER ADMIN: Tolak (Reject) Pengajuan Akun / Biometrik Wali Santri
+  // SUPER ADMIN: Tolak (Reject) Pengajuan Akun Wali Santri
   const rejectFingerprint = useCallback(async (parentToken, reason = 'Data identitas tidak sesuai') => {
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
         return {
           ...s,
-          fingerprintStatus: 'REJECTED',
           bindingStatus: 'REJECTED',
-          fingerprintApprovalNote: reason
+          isLocked: false,
+          isApproved: false,
+          waliApprovalNote: reason
         };
       }
       return s;
@@ -1359,13 +1377,14 @@ export function AppProvider({ children }) {
         const matches = updated.filter(s => s.parentToken === parentToken);
         for (const item of matches) {
           await updateDoc(doc(db, 'santri', item.id), {
-            fingerprintStatus: 'REJECTED',
             bindingStatus: 'REJECTED',
-            fingerprintApprovalNote: reason
+            isLocked: false,
+            isApproved: false,
+            waliApprovalNote: reason
           });
         }
       } catch (err) {
-        console.error('Error rejecting FP on Firestore:', err);
+        console.error('Error rejecting wali account on Firestore:', err);
       }
     }
   }, [santriList, broadcastState, showToast]);
@@ -1407,7 +1426,7 @@ export function AppProvider({ children }) {
     }
   }, [santriList, broadcastState, showToast]);
 
-  // ADMIN & PETUGAS: Pendaftaran Biometrik Santri Langsung Melalui Aplikasi
+  // ADMIN: Pendaftaran & Verifikasi Biometrik Santri (Hanya Oleh Akun Admin / Petugas Berwenang)
   const registerSantriBiometric = useCallback(async (santriId, { method = 'TOUCH_SCREEN_FINGER', biometricCode = null } = {}) => {
     const code = biometricCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const nowIso = new Date().toISOString();
@@ -1422,13 +1441,11 @@ export function AppProvider({ children }) {
           biometricRegistered: true,
           biometricCode: code,
           biometricRegisteredAt: nowIso,
-          biometricRegisteredBy: 'ADMIN_OR_PETUGAS',
+          biometricRegisteredBy: 'ADMIN',
           fingerprintStatus: 'APPROVED',
           fingerprintCode: code,
           fingerprintApprovedAt: nowIso,
-          fingerprintApprovalNote: "Biometrik didaftarkan langsung oleh Admin / Petugas Ma'had",
-          bindingStatus: 'LOCKED',
-          isLocked: true
+          fingerprintApprovalNote: "Biometrik didaftarkan & diverifikasi resmi oleh Admin Ma'had"
         };
       }
       return s;
@@ -1437,7 +1454,7 @@ export function AppProvider({ children }) {
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('success');
-    showToast(`Biometrik santri ${targetSantri?.name || ''} berhasil didaftarkan & aktif!`, 'success');
+    showToast(`Biometrik santri ${targetSantri?.name || ''} berhasil diverifikasi & aktif!`, 'success');
 
     if (!isDemoMode() && db) {
       try {
@@ -1448,13 +1465,11 @@ export function AppProvider({ children }) {
             biometricRegistered: true,
             biometricCode: code,
             biometricRegisteredAt: nowIso,
-            biometricRegisteredBy: 'ADMIN_OR_PETUGAS',
+            biometricRegisteredBy: 'ADMIN',
             fingerprintStatus: 'APPROVED',
             fingerprintCode: code,
             fingerprintApprovedAt: nowIso,
-            fingerprintApprovalNote: "Biometrik didaftarkan langsung oleh Admin / Petugas Ma'had",
-            bindingStatus: 'LOCKED',
-            isLocked: true
+            fingerprintApprovalNote: "Biometrik didaftarkan & diverifikasi resmi oleh Admin Ma'had"
           });
         }
       } catch (err) {
@@ -1465,7 +1480,7 @@ export function AppProvider({ children }) {
     return code;
   }, [santriList, broadcastState, showToast]);
 
-  // ADMIN: Reset Biometrik Santri
+  // ADMIN: Reset Biometrik Santri (Kembalikan ke status Belum Rekam, Akun Wali tetap utuh)
   const resetSantriBiometric = useCallback(async (santriId) => {
     let targetSantri = null;
     const updated = santriList.map(s => {
@@ -1477,12 +1492,11 @@ export function AppProvider({ children }) {
           biometricRegistered: false,
           biometricCode: null,
           biometricRegisteredAt: null,
+          biometricRegisteredBy: null,
           fingerprintStatus: 'NOT_REGISTERED',
           fingerprintCode: null,
           fingerprintApprovedAt: null,
-          fingerprintApprovalNote: null,
-          bindingStatus: 'PENDING_APPROVAL',
-          isLocked: false
+          fingerprintApprovalNote: null
         };
       }
       return s;
@@ -1491,7 +1505,7 @@ export function AppProvider({ children }) {
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('beep');
-    showToast(`Biometrik santri ${targetSantri?.name || ''} telah direset.`, 'info');
+    showToast(`Biometrik santri ${targetSantri?.name || ''} telah direset (Belum Rekam).`, 'info');
 
     if (!isDemoMode() && db) {
       try {
@@ -1500,12 +1514,11 @@ export function AppProvider({ children }) {
           biometricRegistered: false,
           biometricCode: null,
           biometricRegisteredAt: null,
+          biometricRegisteredBy: null,
           fingerprintStatus: 'NOT_REGISTERED',
           fingerprintCode: null,
           fingerprintApprovedAt: null,
-          fingerprintApprovalNote: null,
-          bindingStatus: 'PENDING_APPROVAL',
-          isLocked: false
+          fingerprintApprovalNote: null
         });
       } catch (err) {
         console.error('Error resetting santri biometric on Firestore:', err);
@@ -1513,7 +1526,7 @@ export function AppProvider({ children }) {
     }
   }, [santriList, broadcastState, showToast]);
 
-  // SUPER ADMIN & PETUGAS: Edit / Update Biometrik Santri (Ubah Kode Sidik Jari / Status)
+  // SUPER ADMIN: Edit / Update Biometrik Santri (Ubah Kode Sidik Jari / Status Verifikasi)
   const updateSantriBiometric = useCallback(async (santriId, { biometricCode, status = 'APPROVED' }) => {
     let targetSantri = null;
     const nowIso = new Date().toISOString();
@@ -1522,16 +1535,19 @@ export function AppProvider({ children }) {
     const updated = santriList.map(s => {
       if (s.id === santriId) {
         targetSantri = s;
-        const code = biometricCode || s.biometricCode || s.fingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const code = isApproved 
+          ? (biometricCode || s.biometricCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`)
+          : null;
         return {
           ...s,
           biometricStatus: status,
           biometricRegistered: isApproved,
           biometricCode: code,
-          biometricRegisteredAt: s.biometricRegisteredAt || nowIso,
+          biometricRegisteredAt: isApproved ? (s.biometricRegisteredAt || nowIso) : null,
+          biometricRegisteredBy: isApproved ? (s.biometricRegisteredBy || 'ADMIN') : null,
           fingerprintStatus: status,
           fingerprintCode: code,
-          fingerprintApprovedAt: isApproved ? nowIso : s.fingerprintApprovedAt
+          fingerprintApprovedAt: isApproved ? (s.fingerprintApprovedAt || nowIso) : null
         };
       }
       return s;
@@ -1550,6 +1566,8 @@ export function AppProvider({ children }) {
             biometricStatus: target.biometricStatus,
             biometricRegistered: target.biometricRegistered,
             biometricCode: target.biometricCode,
+            biometricRegisteredAt: target.biometricRegisteredAt,
+            biometricRegisteredBy: target.biometricRegisteredBy,
             fingerprintStatus: target.fingerprintStatus,
             fingerprintCode: target.fingerprintCode,
             fingerprintApprovedAt: target.fingerprintApprovedAt
@@ -2640,7 +2658,9 @@ export function AppProvider({ children }) {
     updateWaliAccount,
     requestFingerprintEnrollment,
     approveFingerprint,
+    approveWaliAccount: approveFingerprint,
     approveAllPendingFingerprints,
+    approveAllPendingWali: approveAllPendingFingerprints,
     rejectFingerprint,
     rejectWaliAccount: rejectFingerprint,
     resetFingerprint,

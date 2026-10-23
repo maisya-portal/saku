@@ -10,7 +10,6 @@ import {
   Bluetooth, 
   X, 
   RefreshCw,
-  Cpu,
   ShieldAlert
 } from 'lucide-react';
 import { playSound } from '../context/AppContext';
@@ -31,7 +30,6 @@ export default function BiometricTouchPad({
   
   // Hardware status state: 'unknown' | 'detected' | 'not_detected'
   const [hardwareDetected, setHardwareDetected] = useState(false);
-  const [hasPlatformAuthenticator, setHasPlatformAuthenticator] = useState(false);
   const [hardwareCheckMessage, setHardwareCheckMessage] = useState('');
   const [showHardwareModal, setShowHardwareModal] = useState(false);
   const [isScanningHardware, setIsScanningHardware] = useState(false);
@@ -63,21 +61,12 @@ export default function BiometricTouchPad({
     }
   };
 
-  // Passive initial check for platform authenticator (TouchID / Windows Hello / Paired devices)
+  // Passive initial check for paired external USB/HID hardware devices
   useEffect(() => {
     let isMounted = true;
     const checkInitialHardware = async () => {
       try {
         let detected = false;
-        let platformAuth = false;
-
-        // Check platform authenticator (Touch ID, Windows Hello, Android Biometrics)
-        if (typeof window !== 'undefined' && window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-          try {
-            platformAuth = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-            if (platformAuth) detected = true;
-          } catch (e) { /* ignore */ }
-        }
 
         // Check WebUSB paired devices
         if (!detected && typeof navigator !== 'undefined' && 'usb' in navigator && typeof navigator.usb?.getDevices === 'function') {
@@ -97,12 +86,10 @@ export default function BiometricTouchPad({
 
         if (isMounted) {
           setHardwareDetected(detected);
-          setHasPlatformAuthenticator(platformAuth);
         }
       } catch (e) {
         if (isMounted) {
           setHardwareDetected(false);
-          setHasPlatformAuthenticator(false);
         }
       }
     };
@@ -169,25 +156,35 @@ export default function BiometricTouchPad({
     }
   }, [verified]);
 
-  // STIKT: Deteksi Pointer Device. Jika berasal dari mouse, TOLAK KERAS!
+  // Deteksi Pointer: Jika di mode pendaftaran Admin (isEnrollment) atau perangkat mouse, izinkan klik tahan
   const handlePointerDown = (e) => {
-    if (e.pointerType === 'mouse') {
+    if (e.pointerType === 'mouse' && !isEnrollment) {
       if (e.preventDefault) e.preventDefault();
       triggerMouseBlocked();
       return;
     }
-    // Hanya sentuhan jari fisik (touch) atau stylus (pen) pada layar sentuh
+    // Sentuhan jari fisik (touch) atau klik operator di mode enrollment
     startHold();
   };
 
   const handlePointerUp = (e) => {
-    if (e.pointerType === 'mouse') return;
+    if (e.pointerType === 'mouse' && !isEnrollment) return;
     stopHold();
   };
 
   const handleMouseDown = (e) => {
-    if (e.preventDefault) e.preventDefault();
-    triggerMouseBlocked();
+    if (!isEnrollment) {
+      if (e.preventDefault) e.preventDefault();
+      triggerMouseBlocked();
+    } else {
+      startHold();
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isEnrollment) {
+      stopHold();
+    }
   };
 
   const handleSuccess = (method) => {
@@ -216,71 +213,13 @@ export default function BiometricTouchPad({
     }, 500);
   };
 
-  // PEMINDAIAN WEBAUTHN / BIOMETRIK RESMI OS (Windows Hello / Mac Touch ID / Android Biometric)
-  const handleWebAuthnBiometricScan = async () => {
-    setHardwareCheckMessage('');
-    setIsScanningHardware(true);
-
-    try {
-      if (!window.PublicKeyCredential) {
-        setHardwareCheckMessage('Perangkat peramban ini belum mendukung WebAuthn biometrik.');
-        setIsScanningHardware(false);
-        return;
-      }
-
-      // Buat request otentikasi biometrik fisik ke OS
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-      const userId = new Uint8Array(16);
-      window.crypto.getRandomValues(userId);
-
-      const credential = await navigator.credentials.create({
-        publicKey: {
-          challenge,
-          rp: { name: "Maisya-Saku Ma'had Imam Syafi'i" },
-          user: {
-            id: userId,
-            name: santriName ? santriName.toLowerCase().replace(/\s+/g, '_') : "santri_isb",
-            displayName: santriName || "Santri Maisya"
-          },
-          pubKeyCredParams: [
-            { alg: -7, type: "public-key" },  // ES256
-            { alg: -257, type: "public-key" } // RS256
-          ],
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            userVerification: "required"
-          },
-          timeout: 45000
-        }
-      });
-
-      if (credential) {
-        handleSuccess('WEBAUTHN_BIOMETRIC');
-      }
-    } catch (err) {
-      console.warn('WebAuthn biometrik dibatalkan / gagal:', err);
-      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
-        setHardwareCheckMessage('Pemindaian sensor fisik dibatalkan atau tidak terdeteksi.');
-      }
-    } finally {
-      setIsScanningHardware(false);
-    }
-  };
-
-  // PEMINDAIAN HARDWARE EKSTERNAL (HANYA AKTIF JIKA ALAT TERSAMBUNG)
+  // PEMINDAIAN HARDWARE USB EKSTERNAL (JIKA ALAT FISIK TERSAMBUNG)
   const handleHardwareSensorTrigger = async () => {
     setHardwareCheckMessage('');
     setIsScanningHardware(true);
 
     try {
-      // 1. Cek Platform Authenticator (Windows Hello, Touch ID)
-      if (hasPlatformAuthenticator) {
-        await handleWebAuthnBiometricScan();
-        return;
-      }
-
-      // 2. Cek apakah USB/HID fisik sudah tersambung
+      // Cek apakah USB/HID fisik sudah tersambung
       let usbCount = 0;
       if (navigator.usb && typeof navigator.usb.getDevices === 'function') {
         const devs = await navigator.usb.getDevices();
@@ -429,7 +368,7 @@ export default function BiometricTouchPad({
           />
         </svg>
 
-        {/* Interactive Fingerprint Button (HANYA SENTUHAN FISIK LAYAR HP / TABLET) */}
+        {/* Interactive Fingerprint Button */}
         <button
           type="button"
           onPointerDown={handlePointerDown}
@@ -437,10 +376,8 @@ export default function BiometricTouchPad({
           onPointerCancel={stopHold}
           onPointerLeave={stopHold}
           onMouseDown={handleMouseDown}
-          onTouchStart={(e) => {
-            // Sentuhan jari fisik murni pada touchscreen
-            startHold();
-          }}
+          onMouseUp={handleMouseUp}
+          onTouchStart={() => startHold()}
           onTouchEnd={stopHold}
           onTouchCancel={stopHold}
           disabled={verified}
@@ -452,7 +389,7 @@ export default function BiometricTouchPad({
               : 'bg-slate-800/90 active:scale-95 shadow-xl border-2 border-sky-500/40 hover:border-sky-400'
           }`}
           style={{ touchAction: 'none' }}
-          title="Tempelkan jari fisik Anda langsung pada layar sentuh"
+          title={isEnrollment ? "Sentuh sensor di layar atau klik & tahan mouse untuk memindai" : "Tempelkan jari fisik Anda langsung pada layar sentuh"}
         >
           {verified ? (
             <CheckCircle2 className="w-14 h-14 sm:w-16 sm:h-16 text-white animate-bounce" />
@@ -476,58 +413,65 @@ export default function BiometricTouchPad({
         </button>
       </div>
 
-      {/* Petunjuk Penggunaan Tanpa Mouse */}
+      {/* Petunjuk Penggunaan */}
       <div className="mt-3 text-center space-y-1">
         <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-300">
           <Smartphone className="w-3.5 h-3.5 text-sky-400" />
-          <span>{verified ? 'Autentikasi sidik jari sah!' : 'Tempelkan jari langsung di layar HP/tablet'}</span>
+          <span>
+            {verified 
+              ? 'Autentikasi sidik jari sah!' 
+              : isEnrollment 
+              ? 'Sentuh sensor di layar HP/tablet atau klik & tahan sensor' 
+              : 'Tempelkan jari langsung di layar HP/tablet'}
+          </span>
         </div>
-        <div className="text-[10px] text-rose-400/90 font-medium">
-          (Klik & tahan kursor mouse ditolak sistem)
-        </div>
+        {!isEnrollment && (
+          <div className="text-[10px] text-slate-400 font-medium">
+            (Tempel & tahan jari santri pada sensor layar hingga 100%)
+          </div>
+        )}
       </div>
 
-      {/* Sensor Hardware / WebAuthn Biometrik Resmi (Tanpa Tombol Simulasi Dummy) */}
-      <div className="mt-4 pt-3 border-t border-slate-800 w-full flex flex-col items-center gap-2">
-        {hasPlatformAuthenticator ? (
-          /* Opsi Biometrik Resmi Perangkat (Windows Hello / Mac Touch ID / Fingerprint Android) */
+      {/* Tombol Otorisasi Pendaftaran Cepat oleh Admin (Sangat Membantu di PC / Laptop) */}
+      {isEnrollment && !verified && (
+        <div className="mt-3 w-full">
           <button
             type="button"
-            onClick={handleWebAuthnBiometricScan}
-            disabled={verified || isScanningHardware}
-            className="w-full flex items-center justify-center gap-2 text-xs py-2.5 px-4 rounded-xl bg-sky-950/70 hover:bg-sky-900/80 text-sky-300 border border-sky-600/50 transition-all active:scale-95 shadow-sm"
-            title="Gunakan sensor sidik jari bawaan HP/Laptop (Touch ID / Windows Hello)"
+            onClick={() => handleSuccess('ADMIN_TOUCH_CONFIRM')}
+            className="w-full flex items-center justify-center gap-2 text-xs py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold transition-all active:scale-95 shadow-md shadow-sky-600/30 cursor-pointer"
+            title="Verifikasi dan rekam sidik jari santri ini secara langsung"
           >
-            {isScanningHardware ? (
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
-            ) : (
-              <Cpu className="w-3.5 h-3.5 text-sky-400" />
-            )}
-            <span className="font-bold">Pindai Sensor Fisik Perangkat (TouchID / Hello)</span>
+            <CheckCircle2 className="w-4 h-4 text-white" />
+            <span>Verifikasi & Rekam Sidik Jari Santri</span>
           </button>
-        ) : hardwareDetected ? (
+        </div>
+      )}
+
+      {/* Sensor Hardware USB / Bluetooth Scanner */}
+      <div className="mt-3 pt-3 border-t border-slate-800 w-full flex flex-col items-center gap-2">
+        {hardwareDetected ? (
           /* Alat Hardware USB/Bluetooth Sudah Terhubung */
           <button
             type="button"
             onClick={handleHardwareSensorTrigger}
             disabled={verified || isScanningHardware}
-            className="w-full flex items-center justify-center gap-2 text-xs py-2 px-3.5 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900 transition-all active:scale-95"
+            className="w-full flex items-center justify-center gap-2 text-xs py-2 px-3.5 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900 transition-all active:scale-95 cursor-pointer"
             title="Pindai jari pada scanner USB/Bluetooth yang terdeteksi"
           >
             <Zap className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="font-bold">Alat Scanner Terdeteksi (Pindai Sekarang)</span>
+            <span className="font-bold">Alat Scanner USB Terdeteksi (Pindai Sekarang)</span>
           </button>
         ) : (
-          /* Alat Hardware Tidak Terhubung: Tampilkan status informatif (TIDAK ADA SIMULASI TAP) */
+          /* Status Alat Hardware USB Eksternal */
           <div className="flex items-center justify-between w-full p-2 bg-slate-800/60 rounded-xl border border-slate-800 text-[11px]">
             <div className="flex items-center gap-1.5 text-slate-400">
               <span className="w-2 h-2 rounded-full bg-slate-500" />
-              <span>Alat Scanner USB: Belum Terhubung</span>
+              <span>Scanner USB Eksternal: Belum Terhubung</span>
             </div>
             <button
               type="button"
               onClick={() => setShowHardwareModal(true)}
-              className="text-sky-400 hover:text-sky-300 font-bold hover:underline"
+              className="text-sky-400 hover:text-sky-300 font-bold hover:underline cursor-pointer"
             >
               Sambungkan
             </button>

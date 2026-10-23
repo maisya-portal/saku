@@ -13,7 +13,7 @@ try {
 
   // 1. Write version.json
   fs.writeFileSync('public/version.json', JSON.stringify({
-    version: '1.0.6',
+    version: '1.0.7',
     buildTime: buildTime,
     builtAt: new Date().toISOString()
   }, null, 2));

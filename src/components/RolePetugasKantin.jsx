@@ -28,7 +28,8 @@ export default function RolePetugasKantin() {
     deleteProduct,
     recordTransaction,
     checkSpendingLimit,
-    showToast
+    showToast,
+    registerSantriBiometric
   } = useApp();
 
   // Mode: 'pos' (Cashier) or 'inventory' (Product Catalog Editor)
@@ -44,6 +45,7 @@ export default function RolePetugasKantin() {
   const [selectedSantri, setSelectedSantri] = useState(null);
   const [completedTx, setCompletedTx] = useState(null);
   const [checkoutError, setCheckoutError] = useState('');
+  const [isRegisteringSantriBiometric, setIsRegisteringSantriBiometric] = useState(false);
 
   // Product Editor Modal State
   const [editingProduct, setEditingProduct] = useState(null); // null or product object
@@ -121,6 +123,13 @@ export default function RolePetugasKantin() {
     setSelectedSantri(santri);
     setCheckoutError('');
 
+    // Wajib Biometrik Santri Terverifikasi untuk Transaksi Keuangan
+    if (santri.biometricStatus !== 'APPROVED' && !santri.biometricRegistered) {
+      setCheckoutError(`TRANSAKSI DITOLAK! Biometrik ananda ${santri.name} BELUM TERDAFTAR / BELUM TERVERIFIKASI. Belanja di kantin santri wajib menggunakan verifikasi biometrik santri.`);
+      playSound('error');
+      return;
+    }
+
     // Check spending limit & balance
     const check = checkSpendingLimit(santri, cartTotal);
     if (!check.allowed) {
@@ -134,6 +143,10 @@ export default function RolePetugasKantin() {
   // Proceed to Biometric Touch
   const handleProceedToBiometric = () => {
     if (!selectedSantri) return;
+    if (selectedSantri.biometricStatus !== 'APPROVED' && !selectedSantri.biometricRegistered) {
+      setCheckoutError(`Biometrik ${selectedSantri.name} belum terdaftar. Harap daftarkan biometrik terlebih dahulu.`);
+      return;
+    }
     const check = checkSpendingLimit(selectedSantri, cartTotal);
     if (!check.allowed) {
       setCheckoutError(check.reason);
@@ -536,12 +549,24 @@ export default function RolePetugasKantin() {
 
             {/* Error / Spending Limit Rejection Alert */}
             {checkoutError && (
-              <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-400/50 text-rose-900 text-xs flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-sm">TRANSAKSI DITOLAK!</div>
-                  <div className="mt-1 leading-relaxed">{checkoutError}</div>
+              <div className="p-4 rounded-2xl bg-rose-50 border-2 border-rose-400/50 text-rose-900 text-xs space-y-2">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-sm">TRANSAKSI DITOLAK!</div>
+                    <div className="mt-1 leading-relaxed">{checkoutError}</div>
+                  </div>
                 </div>
+
+                {selectedSantri && selectedSantri.biometricStatus !== 'APPROVED' && !selectedSantri.biometricRegistered && (
+                  <button
+                    type="button"
+                    onClick={() => setIsRegisteringSantriBiometric(true)}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 active:scale-98 text-slate-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-transform"
+                  >
+                    <span>👆 Daftarkan / Verifikasi Biometrik Santri Ini Sekarang</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -802,6 +827,37 @@ export default function RolePetugasKantin() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* MODAL PENDAFTARAN BIOMETRIK SANTRI DI KASIR */}
+      {isRegisteringSantriBiometric && selectedSantri && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full relative animate-in zoom-in-95">
+            <button
+              type="button"
+              onClick={() => setIsRegisteringSantriBiometric(false)}
+              className="absolute -top-10 right-0 text-white/80 hover:text-white flex items-center gap-1 text-xs font-bold bg-white/10 px-3 py-1.5 rounded-full"
+            >
+              <X className="w-4 h-4" />
+              <span>Batal</span>
+            </button>
+
+            <BiometricTouchPad
+              santriName={`${selectedSantri.name} (${selectedSantri.class || 'Santri'})`}
+              title="Pendaftaran Biometrik Santri di Kantin"
+              subtitle="Sentuhkan jari santri pada sensor layar tablet / reader USB kasir untuk mengaktifkan izin transaksi belanja"
+              onVerified={async (method, code) => {
+                await registerSantriBiometric(selectedSantri.id, {
+                  method,
+                  biometricCode: code
+                });
+                setIsRegisteringSantriBiometric(false);
+                setCheckoutError('');
+                showToast(`Biometrik ${selectedSantri.name} aktif! Izin belanja telah dibuka.`, 'success');
+              }}
+            />
+          </div>
         </div>
       )}
     </div>

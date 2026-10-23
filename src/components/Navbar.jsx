@@ -12,10 +12,12 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Camera
+  Camera,
+  LogOut
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import AvatarEditorModal from './AvatarEditorModal';
+import InitialsAvatar from './InitialsAvatar';
 
 export default function Navbar() {
   const { authSession, logout, toast, hideToast, pesantrenInfo, theme, toggleTheme, updateSessionAvatar } = useApp();
@@ -91,9 +93,9 @@ export default function Navbar() {
           {/* Logo & Brand Identity (Scalev Blue Style) */}
           <div className="flex items-center gap-3">
             <img
-              src="./logo-maisya.jpg"
+              src="./logo-maisya.png"
               alt="Logo Ma'had Imam Syafi'i Brebes"
-              className="w-11 h-11 rounded-2xl object-cover border border-sky-300 dark:border-sky-800 shadow-md shadow-sky-500/25 shrink-0"
+              className="w-11 h-11 object-contain drop-shadow-md shrink-0"
             />
             <div>
               <div className="flex items-center gap-2">
@@ -154,17 +156,12 @@ export default function Navbar() {
                   className="relative group cursor-pointer focus:outline-none"
                   title="Klik untuk ganti foto avatar akun"
                 >
-                  {authSession.avatar ? (
-                    <img
-                      src={authSession.avatar}
-                      alt={authSession.name}
-                      className="w-8 h-8 rounded-xl object-cover border border-sky-400 dark:border-sky-500 shadow-xs"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-xl bg-sky-500 text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0">
-                      {authSession.name ? authSession.name.slice(0, 2).toUpperCase() : 'MP'}
-                    </div>
-                  )}
+                  <InitialsAvatar
+                    name={authSession.name}
+                    src={authSession.avatar}
+                    className="w-8 h-8 text-[11px]"
+                    rounded="rounded-xl"
+                  />
                   <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900/80 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all border border-white">
                     <Camera className="w-2.5 h-2.5" />
                   </span>
@@ -186,11 +183,11 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={logout}
-                  className="flex items-center gap-1 bg-white dark:bg-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-slate-600 dark:text-slate-300 hover:text-rose-600 dark:hover:text-rose-400 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 text-xs font-bold transition-all shadow-xs ml-1"
-                  title="Kunci Sesi / Keluar"
+                  className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/70 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 px-2.5 sm:px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 text-xs font-bold transition-all shadow-xs active:scale-95 ml-1"
+                  title="Keluar dari Akun / Sesi"
                 >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Kunci Sesi</span>
+                  <LogOut className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                  <span className="text-xs font-bold">Keluar</span>
                 </button>
               </div>
             )}

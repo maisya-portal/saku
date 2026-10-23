@@ -2,18 +2,99 @@
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/jpeg" href="./logo-maisya.jpg" />
-    <link rel="apple-touch-icon" href="./logo-maisya.jpg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="./favicon-16x16.png" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png" />
+    <link rel="shortcut icon" href="./favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0284c7" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Maisya-Saku" />
     <meta name="description" content="Maisya-Saku: Portal Sistem Aplikasi Keuangan Santri Ma'had Imam Syafi'i Brebes - Cashless, Kantin POS, Laundry, Wartel & SPP" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="build-time" content="%VITE_BUILD_TIME%" />
     <link rel="manifest" href="./manifest.json" />
     <title>Maisya-Saku | Portal Sistem Aplikasi Keuangan Santri Ma'had Imam Syafi'i Brebes</title>
+
+    <!-- AUTO UPDATE & CACHE PURGE GUARD -->
+    <script>
+      (function() {
+        var APP_BUILD = "%VITE_BUILD_TIME%";
+        var CACHE_KEY = "maisya_build_version";
+
+        // Bersihkan parameter _ts dari address bar jika sebelumnya di-reload dengan cache buster
+        if (window.location.search.indexOf('_ts=') !== -1) {
+          var cleanSearch = window.location.search
+            .replace(/([?&])_ts=[^&]+(&|$)/, '$1')
+            .replace(/[?&]$/, '');
+          var cleanUrl = window.location.pathname + (cleanSearch ? cleanSearch : '') + window.location.hash;
+          window.history.replaceState({}, '', cleanUrl);
+        }
+
+        function purgeAndReload(newTime) {
+          localStorage.setItem(CACHE_KEY, String(newTime));
+          var clearCaches = ('caches' in window)
+            ? caches.keys().then(function(keys) {
+                return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+              })
+            : Promise.resolve();
+
+          var clearSW = ('serviceWorker' in navigator)
+            ? navigator.serviceWorker.getRegistrations().then(function(regs) {
+                return Promise.all(regs.map(function(r) { return r.unregister(); }));
+              })
+            : Promise.resolve();
+
+          Promise.all([clearCaches, clearSW]).then(function() {
+            var sep = window.location.href.indexOf('?') === -1 ? '?' : '&';
+            // Hindari duplikasi parameter
+            var targetUrl = window.location.pathname + '?_ts=' + newTime + window.location.hash;
+            window.location.replace(targetUrl);
+          });
+        }
+
+        // Cek versi terbaru langsung ke server dengan bypass HTTP cache
+        fetch('./version.json?_t=' + Date.now(), {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
+        })
+        .then(function(res) { return res.ok ? res.json() : null; })
+        .then(function(remote) {
+          if (!remote || !remote.buildTime) return;
+          var stored = localStorage.getItem(CACHE_KEY);
+
+          // Jika HTML ini membawa versi lama ATAU cache localStorage berbeda dari server
+          var isOutdated = (APP_BUILD !== "%VITE_BUILD_TIME%" && String(remote.buildTime) !== String(APP_BUILD)) ||
+                           (stored && String(stored) !== String(remote.buildTime));
+
+          if (isOutdated) {
+            console.log('[AutoUpdate] Versi baru ditemukan (' + remote.buildTime + '). Membersihkan semua cache...');
+            purgeAndReload(remote.buildTime);
+          } else {
+            localStorage.setItem(CACHE_KEY, String(remote.buildTime));
+          }
+        })
+        .catch(function() {});
+
+        // Otomatis cek update worker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            for (var i = 0; i < regs.length; i++) {
+              regs[i].update();
+            }
+          });
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-slate-50 text-slate-800 antialiased selection:bg-sky-500 selection:text-white">
+  <body class="bg-slate-50 text-slate-800 antialiased selection:bg-sky-500 selection:text-white min-h-[100dvh]">
     <div id="root"></div>
     <script type="module" src="./src/main.jsx"></script>
   </body>

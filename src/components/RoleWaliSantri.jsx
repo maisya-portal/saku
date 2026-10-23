@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Wallet, 
   ShieldAlert, 
@@ -20,13 +20,23 @@ import {
   Calendar,
   Lock,
   ChevronRight,
-  Camera
+  Camera,
+  Fingerprint,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles,
+  CreditCard,
+  LogOut,
+  Smartphone,
+  X
 } from 'lucide-react';
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
 import confetti from 'canvas-confetti';
 import { openWhatsAppDirect } from '../utils/whatsapp';
 import WhatsAppMessageModal from './WhatsAppMessageModal';
 import AvatarEditorModal from './AvatarEditorModal';
+import BiometricTouchPad from './BiometricTouchPad';
+import InitialsAvatar from './InitialsAvatar';
 
 export default function RoleWaliSantri() {
   const {
@@ -41,12 +51,16 @@ export default function RoleWaliSantri() {
     updateSpendingLimit,
     activeParentToken,
     showToast,
-    updateSessionAvatar
+    updateSessionAvatar,
+    registerSantriBiometric,
+    resetSantriBiometric,
+    logout
   } = useApp();
 
   // Tab views within Wali Portal: 'overview' | 'topup' | 'limits' | 'history'
   const [activeTab, setActiveTab] = useState('overview');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isBiometricModalOpen, setIsBiometricModalOpen] = useState(false);
 
   // WhatsApp Message Modal State
   const [waModalOpen, setWaModalOpen] = useState(false);
@@ -243,9 +257,20 @@ export default function RoleWaliSantri() {
             </div>
 
             {/* Live Data Badge */}
-            <div className="flex items-center gap-2 self-start sm:self-center bg-sky-900/60 backdrop-blur-md border border-sky-400/30 px-3 py-1.5 rounded-2xl text-xs font-medium text-sky-200">
-              <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse" />
-              <span>Sinkronisasi Realtime</span>
+            <div className="flex items-center gap-2 self-start sm:self-center flex-wrap">
+              <div className="flex items-center gap-2 bg-sky-900/60 backdrop-blur-md border border-sky-400/30 px-3 py-1.5 rounded-2xl text-xs font-medium text-sky-200">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse" />
+                <span>Realtime</span>
+              </div>
+              <button
+                type="button"
+                onClick={logout}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-rose-600 text-white px-3 py-1.5 rounded-2xl text-xs font-bold transition-all border border-white/25 active:scale-95 shadow-xs"
+                title="Keluar dari Portal Wali Santri"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Keluar</span>
+              </button>
             </div>
           </div>
 
@@ -274,14 +299,26 @@ export default function RoleWaliSantri() {
                         : 'bg-white/10 hover:bg-white/20 text-white font-medium'
                     }`}
                   >
-                    <img
+                    <InitialsAvatar
+                      name={child.name}
                       src={child.avatar}
-                      alt={child.name}
-                      className="w-10 h-10 rounded-xl object-cover border border-sky-300/40"
+                      className="w-10 h-10 text-xs"
+                      rounded="rounded-xl"
                     />
-                    <div className="overflow-hidden">
-                      <div className="truncate text-sm">{child.name}</div>
-                      <div className="text-xs opacity-90">{child.class} • Nomor ISB: <span className="font-mono font-bold">{child.nis}</span></div>
+                    <div className="overflow-hidden flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="truncate text-sm font-bold">{child.name}</span>
+                        {child.biometricStatus === 'APPROVED' || child.biometricRegistered ? (
+                          <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40 shrink-0">
+                            ✓ Biometrik
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-amber-300 bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-500/40 shrink-0">
+                            ⚠️ Belum Biometrik
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs opacity-90 truncate">{child.class} • ISB: <span className="font-mono font-bold">{child.nis}</span></div>
                     </div>
                   </button>
                 ))}
@@ -296,17 +333,29 @@ export default function RoleWaliSantri() {
                   className="relative group cursor-pointer focus:outline-none shrink-0"
                   title="Klik untuk ganti foto avatar ananda"
                 >
-                  <img
-                    src={currentChild.avatar || './logo-maisya.jpg'}
-                    alt={currentChild.name}
-                    className="w-10 h-10 rounded-xl object-cover border border-white/40 shadow-xs"
+                  <InitialsAvatar
+                    name={currentChild.name}
+                    src={currentChild.avatar}
+                    className="w-10 h-10 text-xs"
+                    rounded="rounded-xl"
                   />
                   <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center opacity-85 group-hover:scale-110 transition-all border border-white">
                     <Camera className="w-2.5 h-2.5" />
                   </span>
                 </button>
                 <div>
-                  <div className="font-bold text-white text-sm">{currentChild.name}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-white text-sm">{currentChild.name}</span>
+                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                      <span className="text-[10px] font-bold text-emerald-200 bg-emerald-900/80 px-2 py-0.5 rounded-full border border-emerald-400/40">
+                        ✓ Biometrik Aktif
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-200 bg-amber-900/80 px-2 py-0.5 rounded-full border border-amber-400/40">
+                        ⚠️ Biometrik Belum Terdaftar
+                      </span>
+                    )}
+                  </div>
                   <div className="opacity-90">{currentChild.class} • Nomor ISB: <strong className="font-mono text-white">{currentChild.nis}</strong></div>
                 </div>
               </div>
@@ -414,6 +463,77 @@ export default function RoleWaliSantri() {
       {/* TAB 1: OVERVIEW & LIVE SPENDING WATCH */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+
+          {/* STATUS PENDAFTARAN BIOMETRIK SANTRI (WAJIB BIOMETRIK UNTUK TRANSAKSI KEUANGAN) */}
+          <div className={`rounded-3xl p-6 border shadow-sm transition-all ${
+            currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered
+              ? 'bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-sky-500/10 border-emerald-400/40 dark:border-emerald-500/30'
+              : 'bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-orange-500/10 border-amber-400/50 dark:border-amber-500/40'
+          }`}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                  currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered
+                    ? 'bg-emerald-500 text-white border-emerald-400 shadow-md shadow-emerald-500/20'
+                    : 'bg-amber-500 text-white border-amber-400 shadow-md shadow-amber-500/20 animate-pulse'
+                }`}>
+                  <Fingerprint className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Biometrik Santri • Otorisasi Transaksi
+                    </span>
+                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                      <span className="inline-flex items-center gap-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>SUDAH TERDAFTAR & TERVERIFIKASI</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 px-2.5 py-0.5 rounded-full text-xs font-bold">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>BELUM TERDAFTAR / BELUM TERVERIFIKASI</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1">
+                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered
+                      ? `Izin Transaksi Biometrik: Aktif (An. ${currentChild.name})`
+                      : `Pendaftaran Biometrik Santri (An. ${currentChild.name})`}
+                  </h3>
+
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-xl leading-relaxed">
+                    {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                      <>
+                        Alhamdulillah, biometrik ananda telah terdaftar dan terverifikasi resmi oleh Admin Ma'had (Kode: <code className="font-mono font-bold text-sky-700 dark:text-sky-300">{currentChild.biometricCode || `FP-SAN-${currentChild.nis}`}</code>). Ananda kini dapat melakukan transaksi keuangan non-tunai di <strong>Kantin Santri</strong>, <strong>Laundry</strong>, dan <strong>Wartel</strong> dengan otorisasi sidik jari.
+                      </>
+                    ) : (
+                      <>
+                        Biometrik sidik jari ananda didaftarkan langsung oleh <strong>Admin / Petugas Pesantren</strong> melalui aplikasi di Pondok Pesantren. Wali santri tidak perlu melakukan perekaman sidik jari mandiri.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Info for Wali */}
+              <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+                {currentChild.biometricStatus === 'APPROVED' || currentChild.biometricRegistered ? (
+                  <span className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Terverifikasi di Pondok</span>
+                  </span>
+                ) : (
+                  <span className="px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs font-bold flex items-center gap-1.5">
+                    <Fingerprint className="w-4 h-4 text-amber-600" />
+                    <span>Didaftarkan Petugas di Pondok</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Spending Limit Status Card */}
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -1018,6 +1138,8 @@ export default function RoleWaliSantri() {
         onSaveAvatar={updateSessionAvatar}
         title={`Ganti Foto Profil: ${currentChild?.name || 'Santri'}`}
       />
+
+
     </div>
   );
 }

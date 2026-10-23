@@ -80,6 +80,13 @@ export default function RolePetugasTelpon() {
   const handleSantriSelect = (santri) => {
     setSelectedSantri(santri);
     setErrorMsg('');
+
+    if (santri.biometricStatus !== 'APPROVED' && !santri.biometricRegistered) {
+      setErrorMsg(`TRANSAKSI DITOLAK! Biometrik ananda ${santri.name} belum terdaftar / belum terverifikasi. Transaksi wartel santri wajib menggunakan verifikasi biometrik.`);
+      playSound('error');
+      return;
+    }
+
     const check = checkSpendingLimit(santri, totalCost);
     if (!check.allowed) {
       setErrorMsg(check.reason);

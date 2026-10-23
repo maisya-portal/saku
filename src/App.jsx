@@ -10,6 +10,8 @@ import RolePetugasTelpon from './components/RolePetugasTelpon';
 import RoleKasirSPP from './components/RoleKasirSPP';
 import RoleKioskSantri from './components/RoleKioskSantri';
 import RoleAdminBendahara from './components/RoleAdminBendahara';
+import AutoUpdateWatcher from './components/AutoUpdateWatcher';
+import AutoLockGuard from './components/AutoLockGuard';
 
 function MainContent() {
   const { authSession, currentRole, pesantrenInfo } = useApp();
@@ -20,7 +22,8 @@ function MainContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+    <AutoLockGuard>
+      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
       <Navbar />
 
       <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
@@ -46,7 +49,8 @@ function MainContent() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </AutoLockGuard>
   );
 }
 
@@ -101,6 +105,7 @@ export default function App() {
     <AppProvider>
       <MainContent />
       <GlobalToast />
+      <AutoUpdateWatcher />
     </AppProvider>
   );
 }

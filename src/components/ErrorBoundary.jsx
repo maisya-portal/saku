@@ -38,9 +38,9 @@ export default class ErrorBoundary extends React.Component {
           <div className="max-w-md w-full bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 text-center animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-center gap-3">
               <img 
-                src="./logo-maisya.jpg" 
+                src="./logo-maisya.png" 
                 alt="Logo Maisya" 
-                className="w-12 h-12 rounded-2xl object-cover border border-sky-300 dark:border-sky-800 shadow-sm"
+                className="w-12 h-12 object-contain shadow-sm"
               />
               <div className="text-left">
                 <div className="text-base font-black text-slate-900 dark:text-white leading-tight">

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Fingerprint, 
   CheckCircle2, 
@@ -10,7 +10,8 @@ import {
   Bluetooth, 
   X, 
   RefreshCw,
-  Cpu
+  Cpu,
+  ShieldAlert
 } from 'lucide-react';
 import { playSound } from '../context/AppContext';
 
@@ -19,7 +20,7 @@ export default function BiometricTouchPad({
   santriName = '',
   amount = null,
   title = "Verifikasi Sidik Jari Santri",
-  subtitle = "Tempelkan & tahan jari pada area sensor di bawah (Layar HP / Tablet)",
+  subtitle = "Tempelkan & tahan jari pada area sensor layar HP / Tablet",
   expectedFingerprintCode = null,
   isEnrollment = false
 }) {
@@ -30,13 +31,26 @@ export default function BiometricTouchPad({
   
   // Hardware status state: 'unknown' | 'detected' | 'not_detected'
   const [hardwareDetected, setHardwareDetected] = useState(false);
+  const [hasPlatformAuthenticator, setHasPlatformAuthenticator] = useState(false);
   const [hardwareCheckMessage, setHardwareCheckMessage] = useState('');
   const [showHardwareModal, setShowHardwareModal] = useState(false);
   const [isScanningHardware, setIsScanningHardware] = useState(false);
 
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
+  const completedRef = useRef(false);
+  const isHoldingRef = useRef(false);
   const HOLD_DURATION = 1200; // ms to complete scan
+
+  // Reset completion state when expected code changes or prop updates
+  useEffect(() => {
+    completedRef.current = false;
+    isHoldingRef.current = false;
+    setVerified(false);
+    setProgress(0);
+    setHolding(false);
+    setMouseBlockedWarning('');
+  }, [expectedFingerprintCode]);
 
   // Haptic feedback
   const triggerVibrate = (pattern) => {
@@ -55,29 +69,41 @@ export default function BiometricTouchPad({
     const checkInitialHardware = async () => {
       try {
         let detected = false;
-        // Check platform authenticator
+        let platformAuth = false;
+
+        // Check platform authenticator (Touch ID, Windows Hello, Android Biometrics)
         if (typeof window !== 'undefined' && window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-          const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-          if (available) detected = true;
+          try {
+            platformAuth = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+            if (platformAuth) detected = true;
+          } catch (e) { /* ignore */ }
         }
 
         // Check WebUSB paired devices
-        if (!detected && typeof navigator !== 'undefined' && navigator.usb && typeof navigator.usb.getDevices === 'function') {
-          const usbDevices = await navigator.usb.getDevices();
-          if (usbDevices && usbDevices.length > 0) detected = true;
+        if (!detected && typeof navigator !== 'undefined' && 'usb' in navigator && typeof navigator.usb?.getDevices === 'function') {
+          try {
+            const usbDevices = await navigator.usb.getDevices();
+            if (usbDevices && usbDevices.length > 0) detected = true;
+          } catch (e) { /* ignore */ }
         }
 
         // Check WebHID paired devices
-        if (!detected && typeof navigator !== 'undefined' && navigator.hid && typeof navigator.hid.getDevices === 'function') {
-          const hidDevices = await navigator.hid.getDevices();
-          if (hidDevices && hidDevices.length > 0) detected = true;
+        if (!detected && typeof navigator !== 'undefined' && 'hid' in navigator && typeof navigator.hid?.getDevices === 'function') {
+          try {
+            const hidDevices = await navigator.hid.getDevices();
+            if (hidDevices && hidDevices.length > 0) detected = true;
+          } catch (e) { /* ignore */ }
         }
 
         if (isMounted) {
           setHardwareDetected(detected);
+          setHasPlatformAuthenticator(platformAuth);
         }
       } catch (e) {
-        if (isMounted) setHardwareDetected(false);
+        if (isMounted) {
+          setHardwareDetected(false);
+          setHasPlatformAuthenticator(false);
+        }
       }
     };
 
@@ -85,46 +111,72 @@ export default function BiometricTouchPad({
     return () => { isMounted = false; };
   }, []);
 
-  const startHold = () => {
-    if (verified) return;
+  const triggerMouseBlocked = useCallback(() => {
+    playSound('error');
+    setMouseBlockedWarning('Akses kursor mouse DITOLAK! Verifikasi wajib menggunakan sidik jari fisik pada sensor layar HP/tablet atau pemindai biometrik fisik.');
+    triggerVibrate([100, 50, 100]);
+    setTimeout(() => {
+      setMouseBlockedWarning('');
+    }, 4500);
+  }, []);
+
+  const startHold = useCallback(() => {
+    if (completedRef.current || isHoldingRef.current || verified) return;
+    isHoldingRef.current = true;
     setHolding(true);
+    setProgress(0);
     startTimeRef.current = Date.now();
     playSound('scan');
     triggerVibrate([40]);
     setMouseBlockedWarning('');
 
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     timerRef.current = setInterval(() => {
+      if (completedRef.current) {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        return;
+      }
+
       const elapsed = Date.now() - startTimeRef.current;
       const currentProgress = Math.min(100, Math.round((elapsed / HOLD_DURATION) * 100));
       setProgress(currentProgress);
 
       if (currentProgress >= 100) {
-        clearInterval(timerRef.current);
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
         handleSuccess('TOUCH_SCREEN_FINGER');
       }
     }, 25);
-  };
+  }, [verified]);
 
-  const stopHold = () => {
-    if (verified) return;
+  const stopHold = useCallback(() => {
+    if (completedRef.current || verified) return;
+    isHoldingRef.current = false;
     setHolding(false);
     setProgress(0);
     if (timerRef.current) {
       clearInterval(timerRef.current);
+      timerRef.current = null;
     }
-  };
+  }, [verified]);
 
-  // Strictly block mouse clicks as requested by user!
+  // STIKT: Deteksi Pointer Device. Jika berasal dari mouse, TOLAK KERAS!
   const handlePointerDown = (e) => {
     if (e.pointerType === 'mouse') {
-      e.preventDefault();
-      playSound('error');
-      setMouseBlockedWarning('Akses Kursor Mouse Ditolak! Sensor sidik jari HANYA merespon sentuhan jari fisik pada layar HP/tablet atau alat sensor hardware yang tersambung.');
-      triggerVibrate([100, 50, 100]);
-      setTimeout(() => setMouseBlockedWarning(''), 5000);
+      if (e.preventDefault) e.preventDefault();
+      triggerMouseBlocked();
       return;
     }
-    // Only physical touch or stylus pen on touchscreen
+    // Hanya sentuhan jari fisik (touch) atau stylus (pen) pada layar sentuh
     startHold();
   };
 
@@ -133,48 +185,115 @@ export default function BiometricTouchPad({
     stopHold();
   };
 
+  const handleMouseDown = (e) => {
+    if (e.preventDefault) e.preventDefault();
+    triggerMouseBlocked();
+  };
+
   const handleSuccess = (method) => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    isHoldingRef.current = false;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     setVerified(true);
+    setHolding(false);
+    setProgress(100);
     playSound('success');
     triggerVibrate([60, 40, 100]);
 
-    // Unique fingerprint code generation for enrollment or verification
+    // Unique fingerprint code generated ONCE per session
     const generatedCode = expectedFingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     setTimeout(() => {
-      onVerified && onVerified(method, generatedCode);
-    }, 600);
+      if (onVerified) {
+        onVerified(method, generatedCode);
+      }
+    }, 500);
   };
 
-  // HARDWARE DETECTION & ACTIVATION (USB / BLUETOOTH / WEBAUTHN)
-  // Per user request: Hardware sensor ONLY activates if a physical device is connected & detected!
+  // PEMINDAIAN WEBAUTHN / BIOMETRIK RESMI OS (Windows Hello / Mac Touch ID / Android Biometric)
+  const handleWebAuthnBiometricScan = async () => {
+    setHardwareCheckMessage('');
+    setIsScanningHardware(true);
+
+    try {
+      if (!window.PublicKeyCredential) {
+        setHardwareCheckMessage('Perangkat peramban ini belum mendukung WebAuthn biometrik.');
+        setIsScanningHardware(false);
+        return;
+      }
+
+      // Buat request otentikasi biometrik fisik ke OS
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+      const userId = new Uint8Array(16);
+      window.crypto.getRandomValues(userId);
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge,
+          rp: { name: "Maisya-Saku Ma'had Imam Syafi'i" },
+          user: {
+            id: userId,
+            name: santriName ? santriName.toLowerCase().replace(/\s+/g, '_') : "santri_isb",
+            displayName: santriName || "Santri Maisya"
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: "public-key" },  // ES256
+            { alg: -257, type: "public-key" } // RS256
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required"
+          },
+          timeout: 45000
+        }
+      });
+
+      if (credential) {
+        handleSuccess('WEBAUTHN_BIOMETRIC');
+      }
+    } catch (err) {
+      console.warn('WebAuthn biometrik dibatalkan / gagal:', err);
+      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+        setHardwareCheckMessage('Pemindaian sensor fisik dibatalkan atau tidak terdeteksi.');
+      }
+    } finally {
+      setIsScanningHardware(false);
+    }
+  };
+
+  // PEMINDAIAN HARDWARE EKSTERNAL (HANYA AKTIF JIKA ALAT TERSAMBUNG)
   const handleHardwareSensorTrigger = async () => {
     setHardwareCheckMessage('');
     setIsScanningHardware(true);
 
     try {
-      // 1. Check Platform Authenticator (Windows Hello, TouchID)
-      let platformAvailable = false;
-      if (window.PublicKeyCredential && typeof PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === 'function') {
-        platformAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+      // 1. Cek Platform Authenticator (Windows Hello, Touch ID)
+      if (hasPlatformAuthenticator) {
+        await handleWebAuthnBiometricScan();
+        return;
       }
 
-      // 2. Check already paired USB devices
+      // 2. Cek apakah USB/HID fisik sudah tersambung
       let usbCount = 0;
       if (navigator.usb && typeof navigator.usb.getDevices === 'function') {
         const devs = await navigator.usb.getDevices();
         usbCount = devs.length;
       }
 
-      // 3. Check already paired HID devices
       let hidCount = 0;
       if (navigator.hid && typeof navigator.hid.getDevices === 'function') {
         const devs = await navigator.hid.getDevices();
         hidCount = devs.length;
       }
 
-      if (platformAvailable || usbCount > 0 || hidCount > 0) {
-        // Hardware is genuinely detected!
+      if (usbCount > 0 || hidCount > 0) {
         setHardwareDetected(true);
         playSound('scan');
         setProgress(100);
@@ -184,7 +303,7 @@ export default function BiometricTouchPad({
         return;
       }
 
-      // If no hardware is detected, open modal requesting user to connect device
+      // Jika belum terhubung, tampilkan modal konfirmasi untuk menghubungkan alat fisik
       setHardwareDetected(false);
       setShowHardwareModal(true);
       playSound('error');
@@ -195,7 +314,7 @@ export default function BiometricTouchPad({
     }
   };
 
-  // User attempts to connect external USB or Bluetooth scanner
+  // Sambungkan scanner USB fisik baru
   const handleRequestHardwareDevice = async (type = 'usb') => {
     setHardwareCheckMessage('');
     try {
@@ -229,11 +348,11 @@ export default function BiometricTouchPad({
           return;
         }
       } else {
-        setHardwareCheckMessage(`Browser ini tidak mendukung koneksi langsung ${type.toUpperCase()}. Silakan pastikan driver scanner USB/Bluetooth terinstal di sistem operasi Anda.`);
+        setHardwareCheckMessage(`Browser ini tidak mendukung protokol koneksi langsung ${type.toUpperCase()}.`);
       }
     } catch (e) {
       playSound('error');
-      setHardwareCheckMessage('Perangkat scanner sidik jari belum terhubung atau pemilihan dibatalkan. Silakan gunakan sensor biometrik layar sentuh di atas.');
+      setHardwareCheckMessage('Perangkat scanner sidik jari belum terhubung atau pemilihan dibatalkan.');
     }
   };
 
@@ -244,46 +363,49 @@ export default function BiometricTouchPad({
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-slate-900 text-white rounded-3xl shadow-2xl border border-sky-900/60 max-w-sm mx-auto select-none transition-colors relative">
-      <div className="flex items-center gap-2 mb-2 text-sky-400 font-semibold text-xs uppercase tracking-wider">
+    <div className="flex flex-col items-center justify-center p-5 sm:p-6 bg-slate-900 text-white rounded-3xl shadow-2xl border border-sky-900/60 w-full max-w-sm mx-auto select-none transition-colors relative max-h-[88dvh] overflow-y-auto scrollbar-thin">
+      
+      {/* Header Badge */}
+      <div className="flex items-center gap-1.5 mb-2 text-sky-400 font-semibold text-xs uppercase tracking-wider">
         <ShieldCheck className="w-4 h-4 text-sky-400" />
-        <span>Sensor Biometrik Layar Sentuh</span>
+        <span>Verifikasi Sidik Jari Asli</span>
       </div>
 
-      <h3 className="text-xl font-bold text-center text-white mb-1">
+      <h3 className="text-lg sm:text-xl font-bold text-center text-white mb-1 leading-snug">
         {title}
       </h3>
       
       {santriName && (
-        <div className="bg-sky-950/80 border border-sky-500/30 text-sky-300 px-4 py-1.5 rounded-full text-xs font-medium mb-2">
+        <div className="bg-sky-950/80 border border-sky-500/30 text-sky-300 px-3.5 py-1 rounded-full text-xs font-medium mb-2 truncate max-w-[280px]">
           Santri: <span className="font-bold text-white">{santriName}</span>
         </div>
       )}
 
       {amount !== null && (
-        <div className="text-2xl font-black text-amber-400 mb-3 tracking-wide font-mono">
+        <div className="text-xl sm:text-2xl font-black text-amber-400 mb-2 tracking-wide font-mono">
           {typeof amount === 'number' ? `Rp ${amount.toLocaleString('id-ID')}` : amount}
         </div>
       )}
 
-      <p className="text-xs text-slate-400 text-center max-w-xs mb-5 leading-relaxed">
+      <p className="text-[11px] sm:text-xs text-slate-400 text-center max-w-xs mb-4 leading-relaxed">
         {subtitle}
       </p>
 
-      {/* Mouse Blocked Warning Notice */}
+      {/* Mouse Blocked Warning Notice (Merah & Tegas) */}
       {mouseBlockedWarning && (
-        <div className="mb-4 p-3 rounded-2xl bg-rose-950/90 border border-rose-500/60 text-rose-300 text-xs flex items-start gap-2 animate-in fade-in zoom-in-95 text-left">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+        <div className="mb-4 p-3 rounded-2xl bg-rose-950/95 border-2 border-rose-500 text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in zoom-in-95 text-left shadow-lg">
+          <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5 animate-bounce" />
           <div className="leading-tight">
-            <strong>Keamanan Biometrik:</strong> {mouseBlockedWarning}
+            <strong className="block text-rose-300 font-bold mb-0.5">PERINGATAN KEAMANAN BIOMETRIK:</strong>
+            {mouseBlockedWarning}
           </div>
         </div>
       )}
 
       {/* Touch Sensor Area */}
-      <div className="relative flex items-center justify-center my-2">
+      <div className="relative flex items-center justify-center my-1">
         {/* Progress Ring */}
-        <svg className="w-44 h-44 -rotate-90 transform" viewBox="0 0 100 100">
+        <svg className="w-40 h-40 sm:w-44 sm:h-44 -rotate-90 transform" viewBox="0 0 100 100">
           <circle
             cx="50"
             cy="50"
@@ -297,7 +419,7 @@ export default function BiometricTouchPad({
             cy="50"
             r="44"
             className={`transition-all duration-75 ${
-              verified ? 'stroke-sky-400' : holding ? 'stroke-sky-400' : 'stroke-transparent'
+              verified ? 'stroke-emerald-400' : holding ? 'stroke-sky-400' : 'stroke-transparent'
             }`}
             strokeWidth="6"
             strokeDasharray="276.46"
@@ -307,31 +429,37 @@ export default function BiometricTouchPad({
           />
         </svg>
 
-        {/* Interactive Fingerprint Button (Touchscreen Only — Blocks Mouse) */}
+        {/* Interactive Fingerprint Button (HANYA SENTUHAN FISIK LAYAR HP / TABLET) */}
         <button
           type="button"
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={stopHold}
-          onTouchStart={(e) => { e.preventDefault(); startHold(); }}
-          onTouchEnd={(e) => { e.preventDefault(); stopHold(); }}
-          onTouchCancel={(e) => { e.preventDefault(); stopHold(); }}
+          onPointerLeave={stopHold}
+          onMouseDown={handleMouseDown}
+          onTouchStart={(e) => {
+            // Sentuhan jari fisik murni pada touchscreen
+            startHold();
+          }}
+          onTouchEnd={stopHold}
+          onTouchCancel={stopHold}
           disabled={verified}
-          className={`absolute w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all duration-300 outline-none ${
+          className={`absolute w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center transition-all duration-300 outline-none select-none cursor-pointer ${
             verified
-              ? 'bg-sky-500 scale-105 shadow-lg shadow-sky-500/50'
+              ? 'bg-emerald-500 scale-105 shadow-lg shadow-emerald-500/50'
               : holding
-              ? 'bg-sky-950/80 scale-95 ring-4 ring-sky-400/60 shadow-inner'
+              ? 'bg-sky-950/90 scale-95 ring-4 ring-sky-400/70 shadow-inner'
               : 'bg-slate-800/90 active:scale-95 shadow-xl border-2 border-sky-500/40 hover:border-sky-400'
           }`}
           style={{ touchAction: 'none' }}
+          title="Tempelkan jari fisik Anda langsung pada layar sentuh"
         >
           {verified ? (
-            <CheckCircle2 className="w-16 h-16 text-white animate-bounce" />
+            <CheckCircle2 className="w-14 h-14 sm:w-16 sm:h-16 text-white animate-bounce" />
           ) : (
-            <div className="relative">
+            <div className="relative pointer-events-none">
               <Fingerprint
-                className={`w-16 h-16 transition-colors duration-200 ${
+                className={`w-14 h-14 sm:w-16 sm:h-16 transition-colors duration-200 ${
                   holding ? 'text-sky-300 animate-pulse' : 'text-slate-400'
                 }`}
               />
@@ -342,59 +470,79 @@ export default function BiometricTouchPad({
             </div>
           )}
 
-          <span className="text-[10px] uppercase font-bold tracking-wider mt-1 text-slate-300">
-            {verified ? 'Terverifikasi' : holding ? `${progress}% Menyimak...` : 'Sentuh & Tahan'}
+          <span className="text-[10px] uppercase font-bold tracking-wider mt-1 text-slate-300 pointer-events-none">
+            {verified ? 'Terverifikasi' : holding ? `${progress}% Memindai...` : 'Tempel & Tahan'}
           </span>
         </button>
       </div>
 
-      <div className="mt-4 text-center space-y-1">
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+      {/* Petunjuk Penggunaan Tanpa Mouse */}
+      <div className="mt-3 text-center space-y-1">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-300">
           <Smartphone className="w-3.5 h-3.5 text-sky-400" />
-          <span>{verified ? 'Autentikasi sidik jari valid!' : 'Tempelkan jari Anda langsung di layar HP/tablet'}</span>
+          <span>{verified ? 'Autentikasi sidik jari sah!' : 'Tempelkan jari langsung di layar HP/tablet'}</span>
         </div>
-        <div className="text-[10px] text-slate-500">
-          (Klik kursor mouse diblokir demi validitas biometrik fisik)
-        </div>
-      </div>
-
-      {/* Hardware Scanner Option with Strict Detection Status */}
-      <div className="mt-5 pt-3 border-t border-slate-800 w-full flex flex-col items-center gap-1.5">
-        <button
-          type="button"
-          onClick={handleHardwareSensorTrigger}
-          disabled={verified || isScanningHardware}
-          className={`flex items-center gap-2 text-[11px] px-3.5 py-2 rounded-xl transition-all border active:scale-95 ${
-            hardwareDetected
-              ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900'
-              : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'
-          }`}
-          title="Sensor hardware USB/Bluetooth hanya aktif jika alat fisiknya tersambung"
-        >
-          {isScanningHardware ? (
-            <RefreshCw className="w-3.5 h-3.5 text-sky-400 animate-spin" />
-          ) : (
-            <Zap className={`w-3.5 h-3.5 ${hardwareDetected ? 'text-emerald-400' : 'text-amber-400'}`} />
-          )}
-          <span>Sensor Hardware Fingerprint (USB / Bluetooth)</span>
-        </button>
-
-        <div className="flex items-center gap-1 text-[10px] text-slate-400">
-          <span className={`w-2 h-2 rounded-full ${hardwareDetected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'}`} />
-          <span>
-            {hardwareDetected ? 'Alat Biometrik Fisik Terdeteksi' : 'Hardware USB/Bluetooth: Perlu Alat Terhubung'}
-          </span>
+        <div className="text-[10px] text-rose-400/90 font-medium">
+          (Klik & tahan kursor mouse ditolak sistem)
         </div>
       </div>
 
-      {/* Hardware Sensor Not Detected Modal */}
+      {/* Sensor Hardware / WebAuthn Biometrik Resmi (Tanpa Tombol Simulasi Dummy) */}
+      <div className="mt-4 pt-3 border-t border-slate-800 w-full flex flex-col items-center gap-2">
+        {hasPlatformAuthenticator ? (
+          /* Opsi Biometrik Resmi Perangkat (Windows Hello / Mac Touch ID / Fingerprint Android) */
+          <button
+            type="button"
+            onClick={handleWebAuthnBiometricScan}
+            disabled={verified || isScanningHardware}
+            className="w-full flex items-center justify-center gap-2 text-xs py-2.5 px-4 rounded-xl bg-sky-950/70 hover:bg-sky-900/80 text-sky-300 border border-sky-600/50 transition-all active:scale-95 shadow-sm"
+            title="Gunakan sensor sidik jari bawaan HP/Laptop (Touch ID / Windows Hello)"
+          >
+            {isScanningHardware ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+            ) : (
+              <Cpu className="w-3.5 h-3.5 text-sky-400" />
+            )}
+            <span className="font-bold">Pindai Sensor Fisik Perangkat (TouchID / Hello)</span>
+          </button>
+        ) : hardwareDetected ? (
+          /* Alat Hardware USB/Bluetooth Sudah Terhubung */
+          <button
+            type="button"
+            onClick={handleHardwareSensorTrigger}
+            disabled={verified || isScanningHardware}
+            className="w-full flex items-center justify-center gap-2 text-xs py-2 px-3.5 rounded-xl bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900 transition-all active:scale-95"
+            title="Pindai jari pada scanner USB/Bluetooth yang terdeteksi"
+          >
+            <Zap className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="font-bold">Alat Scanner Terdeteksi (Pindai Sekarang)</span>
+          </button>
+        ) : (
+          /* Alat Hardware Tidak Terhubung: Tampilkan status informatif (TIDAK ADA SIMULASI TAP) */
+          <div className="flex items-center justify-between w-full p-2 bg-slate-800/60 rounded-xl border border-slate-800 text-[11px]">
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <span className="w-2 h-2 rounded-full bg-slate-500" />
+              <span>Alat Scanner USB: Belum Terhubung</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowHardwareModal(true)}
+              className="text-sky-400 hover:text-sky-300 font-bold hover:underline"
+            >
+              Sambungkan
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Hardware Connection Modal (Saat Pengguna Ingin Menyambungkan Alat USB/Bluetooth Asli) */}
       {showHardwareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-sm w-full p-5 space-y-4 text-left shadow-2xl relative animate-in zoom-in-95">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-sm w-full p-5 space-y-4 text-left shadow-2xl relative animate-in zoom-in-95 max-h-[90dvh] overflow-y-auto">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
                 <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-                <span>Alat Sensor Hardware Tidak Terdeteksi</span>
+                <span>Sambungkan Alat Scanner Sidik Jari</span>
               </div>
               <button
                 type="button"
@@ -406,7 +554,7 @@ export default function BiometricTouchPad({
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Sesuai standar keamanan sistem, sensor hardware <strong>hanya dapat diaktifkan jika alat scanner fisik sidik jari tersambung</strong> melalui kabel USB atau Bluetooth pada komputer/HP Anda.
+              Sesuai instruksi keamanan, tombol simulasi tap ditiadakan. Fitur scanner eksternal <strong>hanya aktif jika alat fisik tersambung</strong> ke perangkat ini.
             </p>
 
             {hardwareCheckMessage && (
@@ -417,7 +565,7 @@ export default function BiometricTouchPad({
 
             <div className="space-y-2 pt-1">
               <div className="text-[11px] text-slate-400 font-semibold">
-                Pilih opsi penyambungan alat scanner:
+                Pilih opsi penyambungan kabel scanner:
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -427,7 +575,7 @@ export default function BiometricTouchPad({
                   className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-sky-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Usb className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Sambung USB</span>
+                  <span>Kabel USB</span>
                 </button>
 
                 <button
@@ -436,7 +584,7 @@ export default function BiometricTouchPad({
                   className="p-2.5 bg-slate-800 hover:bg-slate-750 border border-slate-700 text-sky-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Bluetooth className="w-3.5 h-3.5 text-sky-400" />
-                  <span>Sambung BT</span>
+                  <span>Bluetooth</span>
                 </button>
               </div>
 
@@ -445,7 +593,7 @@ export default function BiometricTouchPad({
                 onClick={() => setShowHardwareModal(false)}
                 className="w-full mt-2 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition-colors"
               >
-                Gunakan Sensor Layar Sentuh Saja
+                Gunakan Sensor Layar Sentuh HP/Tablet Saja
               </button>
             </div>
           </div>

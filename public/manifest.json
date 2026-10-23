@@ -3,20 +3,27 @@
   "short_name": "Maisya-Saku",
   "description": "Portal Sistem Aplikasi Keuangan Santri Ma'had Imam Syafi'i Brebes - Cashless Santri, Kantin, Laundry, Wartel & SPP",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0284c7",
   "theme_color": "#0284c7",
-  "orientation": "portrait-primary",
+  "orientation": "any",
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  "handle_links": "preferred",
   "icons": [
     {
       "src": "./icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

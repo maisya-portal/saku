@@ -32,6 +32,12 @@ export default function RoleKasirSPP() {
   const santriBills = sppBills.filter(b => b.santriNis === selectedSantri?.nis);
 
   const handleStartPayment = (bill) => {
+    if (selectedSantri.biometricStatus !== 'APPROVED' && !selectedSantri.biometricRegistered) {
+      showToast(`Pembayaran ditolak: Biometrik ${selectedSantri.name} belum terdaftar/terverifikasi!`, 'error');
+      playSound('error');
+      return;
+    }
+
     if (selectedSantri.balance < bill.amount) {
       showToast(`Saldo santri (${formatRupiah(selectedSantri.balance)}) tidak cukup untuk membayar ${bill.title} (${formatRupiah(bill.amount)})`, 'error');
       playSound('error');

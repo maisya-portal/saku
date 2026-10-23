@@ -62,14 +62,14 @@ export default function WhatsAppDispatchModal({
       `Klik tautan di bawah ini:\n` +
       `${magicLink}\n\n` +
       `PIN Masuk Anda: *${pin}*\n` +
-      `(Anda juga dapat masuk menggunakan sensor sidik jari pada layar HP/tablet).\n\n` +
+      `` +
       `Harap jaga kerahasiaan tautan dan PIN ini.`
     : `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
       `Kepada Yth. Bapak/Ibu *${recipientName}*\n` +
       `Berikut adalah Tautan Portal Keuangan Santri Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
       `Klik tautan di bawah ini:\n` +
       `${magicLink}\n\n` +
-      `PIN Masuk: *${pin || '1234'}* (atau gunakan sensor sidik jari di HP/tablet)\n\n` +
+      `PIN Masuk: *${pin || '1234'}* (Wali masuk langsung via link tanpa biometrik)\n\n` +
       `Melalui tautan ini Anda dapat memantau saldo realtime, membatasi jajan ananda, dan konfirmasi transfer uang saku.\n` +
       `Jazakumullahu khairan.`;
 

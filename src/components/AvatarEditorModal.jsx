@@ -31,7 +31,7 @@ const PRESET_AVATARS = [
   { id: 'av-13', label: 'Ilustrasi Santri Cerdas', url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=200&auto=format&fit=crop&q=80' },
   { id: 'av-14', label: 'Ilustrasi Hafidz', url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200&auto=format&fit=crop&q=80' },
   { id: 'av-15', label: 'Simbol Masjid & Berkah', url: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?w=200&auto=format&fit=crop&q=80' },
-  { id: 'av-16', label: 'Logo Resmi Ma\'had', url: './logo-maisya.jpg' }
+  { id: 'av-16', label: 'Logo Resmi Ma\'had', url: './logo-maisya.png' }
 ];
 
 export default function AvatarEditorModal({

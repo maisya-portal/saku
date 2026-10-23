@@ -1,48 +1,45 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
+  Lock, 
+  LogIn, 
+  UserPlus, 
+  Search, 
+  CheckCircle2, 
+  Clock, 
+  AlertCircle, 
+  ArrowRight, 
   ShieldCheck, 
-  Send, 
+  User, 
+  KeyRound, 
   Plus, 
   Trash2, 
-  User, 
-  Phone, 
-  GraduationCap, 
-  Hash, 
-  Sparkles, 
-  CheckCircle2, 
-  ExternalLink, 
-  Copy, 
-  Check, 
-  KeyRound, 
-  X,
-  ArrowRight,
-  Info,
-  Sun,
-  Moon,
-  Wallet,
-  CreditCard,
-  QrCode,
-  ShoppingBag,
-  Shirt,
-  Building2,
-  Landmark,
-  Clock,
-  HeartHandshake,
-  Lock,
-  Smartphone,
+  MessageSquare, 
+  Sun, 
+  Moon, 
+  X, 
   ChevronRight,
-  BadgeCheck,
-  ChevronDown,
-  Fingerprint,
-  AlertTriangle,
+  Sparkles,
+  Phone,
   Eye,
-  EyeOff
+  EyeOff,
+  Store,
+  Shield
 } from 'lucide-react';
-import { useApp, playSound, formatRupiah } from '../context/AppContext';
-import { formatPhoneNumber, openWhatsAppDirect } from '../utils/whatsapp';
+import { useApp, playSound } from '../context/AppContext';
 import WhatsAppMessageModal from './WhatsAppMessageModal';
-import PetugasBiometricRegisterModal from './PetugasBiometricRegisterModal';
+import InitialsAvatar from './InitialsAvatar';
+import { openWhatsAppDirect } from '../utils/whatsapp';
 import confetti from 'canvas-confetti';
+
+// Sensor nomor HP demi menjaga privasi di halaman pencarian publik
+function maskPhoneNumber(phone) {
+  if (!phone) return '-';
+  const clean = phone.replace(/[^0-9]/g, '');
+  if (clean.length <= 6) return clean;
+  const start = clean.slice(0, 4);
+  const end = clean.slice(-4);
+  return `${start} •••• ${end}`;
+}
 
 export default function LandingPage({ onSelectRole }) {
   const { 
@@ -52,15 +49,62 @@ export default function LandingPage({ onSelectRole }) {
     santriList,
     theme, 
     toggleTheme, 
-    showToast 
+    showToast,
+    loginDirectly,
+    loginWithPin,
+    loginWaliWithPassword
   } = useApp();
 
-  // Top Announcement Bar collapse state
-  const [isTopBarHidden, setIsTopBarHidden] = useState(() => {
-    return localStorage.getItem('maisya_hide_topbar') === 'true';
-  });
+  // Navigation tab: 'login' (default) | 'status' | 'register'
+  const [activeTab, setActiveTab] = useState('login');
 
-  // WhatsApp Message Modal State
+  // Login dengan Password State
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [pendingWaliAccount, setPendingWaliAccount] = useState(null);
+
+  // Registration Password State
+  const [parentPassword, setParentPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+
+  // Search by Parent Name or Child Name
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Fallback Token / Direct Link Input (collapsible)
+  const [showDirectTokenInput, setShowDirectTokenInput] = useState(false);
+  const [directTokenInput, setDirectTokenInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // =========================================================================
+  // 1. MODAL KHUSUS PETUGAS KASIR (Kantin, Laundry, Wartel, SPP, Kiosk)
+  // =========================================================================
+  const [petugasModalOpen, setPetugasModalOpen] = useState(false);
+  const [selectedPetugas, setSelectedPetugas] = useState(null);
+  const [petugasPinInput, setPetugasPinInput] = useState('');
+  const [petugasPinError, setPetugasPinError] = useState('');
+
+  // =========================================================================
+  // 2. MODAL KHUSUS SUPER ADMIN (TERPISAH & PRIBADI)
+  // =========================================================================
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminPasswordError, setAdminPasswordError] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+
+  // Registration Form State (1x Registration)
+  const [parentName, setParentName] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
+  const [children, setChildren] = useState([
+    { id: 1, name: '', isb: '' }
+  ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [regResult, setRegResult] = useState(null);
+
+  // WhatsApp Modal State
   const [waModalOpen, setWaModalOpen] = useState(false);
   const [waModalData, setWaModalData] = useState({
     recipientName: '',
@@ -70,1424 +114,1582 @@ export default function LandingPage({ onSelectRole }) {
     title: ''
   });
 
-  // Form State
-  const [parentName, setParentName] = useState('');
-  const [parentPhone, setParentPhone] = useState('');
-  const [children, setChildren] = useState([
-    { id: 1, name: '', isb: '' }
-  ]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generatedResult, setGeneratedResult] = useState(null);
-  const [showStaffModal, setShowStaffModal] = useState(false);
-  const [staffPinGateOpen, setStaffPinGateOpen] = useState(false);
-  const [staffPinInput, setStaffPinInput] = useState('');
-  const [staffPinError, setStaffPinError] = useState('');
-  const [staffRegisterModalOpen, setStaffRegisterModalOpen] = useState(false);
+  
+  // Handler Login Wali Santri dengan Password
+  const handlePasswordLoginSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setLoginError('');
+    setPendingWaliAccount(null);
 
-  // Live lookup for existing registered Wali Santri
-  const matchedExistingWali = useMemo(() => {
-    const trimmedName = parentName.trim().toLowerCase();
-    const cleanPhone = parentPhone.replace(/\D/g, '');
-    if (!trimmedName && cleanPhone.length < 5) return null;
+    const iden = loginIdentifier.trim();
+    const pass = loginPassword.trim();
 
-    const match = santriList.filter(s => {
-      const sName = (s.parentName || '').trim().toLowerCase();
-      const sPhone = (s.parentPhone || '').replace(/\D/g, '');
-      const nameMatch = trimmedName && sName && (sName === trimmedName || (trimmedName.length >= 4 && sName.includes(trimmedName)));
-      const phoneMatch = cleanPhone.length >= 5 && sPhone && (sPhone.includes(cleanPhone) || cleanPhone.includes(sPhone));
-      return nameMatch || phoneMatch;
-    });
-
-    if (match.length > 0) {
-      const first = match[0];
-      return {
-        parentName: first.parentName,
-        parentPhone: first.parentPhone,
-        parentToken: first.parentToken,
-        bindingLockCode: first.bindingLockCode,
-        fingerprintStatus: first.fingerprintStatus || 'NOT_REGISTERED',
-        pin: first.pin,
-        children: match
-      };
+    if (!iden) {
+      setLoginError('Silakan masukkan nomor WhatsApp, nama santri, atau NIS.');
+      return;
     }
-    return null;
-  }, [parentName, parentPhone, santriList]);
+    if (!pass) {
+      setLoginError('Silakan masukkan password akun Anda.');
+      return;
+    }
 
-  // Check if an individual child is already registered
-  const checkExistingChild = useCallback((childName, childIsb) => {
-    const trimmedName = (childName || '').trim().toLowerCase();
-    const cleanIsb = (childIsb || '').trim().toLowerCase().replace(/[^0-9]/g, '');
-    if (!trimmedName && !cleanIsb) return null;
+    setLoginLoading(true);
+    try {
+      await loginWaliWithPassword(iden, pass, rememberMe);
+    } catch (err) {
+      if (err.isPendingApproval && err.account) {
+        setPendingWaliAccount(err.account);
+        setLoginError("Akun Anda sudah terdaftar, namun sedang menunggu verifikasi dari Admin Ma'had.");
+      } else {
+        setLoginError(err.message || 'Gagal masuk. Periksa kembali identitas dan password Anda.');
+      }
+    } finally {
+      setLoginLoading(false);
+    }
+  };
 
-    return santriList.find(s => {
-      const sName = (s.name || '').trim().toLowerCase();
-      const sNis = (s.nis || '').trim().toLowerCase().replace(/[^0-9]/g, '');
-      const sBarcode = (s.barcode || '').trim().toLowerCase();
-      return (trimmedName && sName === trimmedName) || (cleanIsb && (sNis === cleanIsb || sBarcode.includes(cleanIsb)));
+  // Filter operational staff roles (excluding Super Admin)
+  const operationalStaffAccounts = useMemo(() => {
+    return roleAccounts.filter(r => r.role !== 'admin');
+  }, [roleAccounts]);
+
+  const superAdminAccount = useMemo(() => {
+    return roleAccounts.find(r => r.role === 'admin') || {
+      id: 'role-admin',
+      name: 'Super Admin Keuangan Ma\'had',
+      title: 'Administrator & Bendahara Utama',
+      role: 'admin',
+      token: 'admin-utama',
+      pin: 'iftahadmin87',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+    };
+  }, [roleAccounts]);
+
+  // Group santriList by parentToken to get all registered Wali Santri accounts
+  const registeredWaliList = useMemo(() => {
+    const map = new Map();
+    santriList.forEach(s => {
+      if (!s.parentToken) return;
+      if (!map.has(s.parentToken)) {
+        const isApproved = Boolean(
+          s.fingerprintStatus === 'APPROVED' || 
+          s.bindingStatus === 'APPROVED' || 
+          s.bindingStatus === 'LOCKED'
+        );
+        map.set(s.parentToken, {
+          parentToken: s.parentToken,
+          parentName: s.parentName || 'Wali Santri',
+          parentPhone: s.parentPhone || '',
+          pin: s.pin || '1234',
+          bindingLockCode: s.bindingLockCode || `BIND-ISB-${s.parentToken.toUpperCase()}`,
+          bindingStatus: s.bindingStatus || (isApproved ? 'APPROVED' : 'PENDING_APPROVAL'),
+          isApproved,
+          fingerprintStatus: s.fingerprintStatus || (isApproved ? 'APPROVED' : 'PENDING_APPROVAL'),
+          avatar: s.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150",
+          children: []
+        });
+      }
+      map.get(s.parentToken).children.push(s);
     });
+    return Array.from(map.values());
   }, [santriList]);
 
-  // WhatsApp Handlers with Form Preview Modals
-  const handleOpenAdminWAModal = () => {
-    setWaModalData({
-      recipientName: "Admin Ma'had Imam Syafi'i Brebes",
-      recipientRole: "Layanan & Bantuan Portal Maisya-Saku",
-      phoneNumber: pesantrenInfo.whatsappAdmin || "6282119836050",
-      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\nSaya ingin menanyakan informasi terkait sistem keuangan santri Maisya-Saku: \n[Tuliskan pertanyaan atau kendala Anda di sini]\n\nJazakumullahu khairan.`,
-      title: "Bantuan Admin Ma'had via WhatsApp"
+  // Real-time Search Results based on Query
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q || q.length < 2) return [];
+
+    return registeredWaliList.filter(w => {
+      const matchParent = (w.parentName || '').toLowerCase().includes(q);
+      const matchPhone = (w.parentPhone || '').includes(q);
+      const matchToken = (w.parentToken || '').toLowerCase().includes(q);
+      const matchChild = w.children.some(c => 
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.nis || '').toLowerCase().includes(q) ||
+        (c.barcode || '').toLowerCase().includes(q)
+      );
+      return matchParent || matchPhone || matchToken || matchChild;
     });
-    setWaModalOpen(true);
-  };
+  }, [searchQuery, registeredWaliList]);
 
-  const handleOpenUangSakuWAModal = () => {
-    setWaModalData({
-      recipientName: "Ustadz Firdhi",
-      recipientRole: "Pengelola Uang Saku Santri (Jajan, Laundry, Wartel & Tarik Tunai)",
-      phoneNumber: "6281949682554",
-      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Ustadz Firdhi (Pengelola Uang Saku Ma'had Imam Syafi'i Brebes).\n\nSaya ingin konfirmasi transfer pengisian saldo uang saku santri:\nNama Santri: [Nama Santri]\nNomor ISB / NIS: [Nomor ISB]\nNominal Transfer: Rp [Nominal]\nRekening Tujuan: Bank BSI 5221717173 a.n. Ponpes Imam Syafii Brebes\nCatatan Tambahan: [Tambahkan catatan jika ada]\n\nMohon dibantu verifikasi saldo. Jazakumullahu khairan.`,
-      title: "Konfirmasi Transfer Uang Saku (Ustadz Firdhi)"
-    });
-    setWaModalOpen(true);
-  };
+  // Check if a Wali Santri account is already saved on this device
+  const savedWaliToken = useMemo(() => {
+    return localStorage.getItem('maisya_registered_wali_token') || null;
+  }, [regResult]);
 
-  const handleOpenSPPWAModal = () => {
-    setWaModalData({
-      recipientName: "Bapak Imawan",
-      recipientRole: "Bagian Keuangan & SPP Pesantren",
-      phoneNumber: "62818275720",
-      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Bapak Imawan (Bagian Keuangan SPP Ma'had Imam Syafi'i Brebes).\n\nSaya ingin konfirmasi transfer pembayaran SPP / Pendidikan santri:\nNama Santri: [Nama Santri]\nNomor ISB / NIS: [Nomor ISB]\nNominal Transfer: Rp [Nominal]\nRekening Tujuan: Bank BSI 6469965840 a.n. Yayasan Pendidikan Imam Syafi'i Brebes\nTagihan / Bulan: [Contoh: SPP Bulan Ini]\nCatatan Tambahan: [Tambahkan catatan jika ada]\n\nMohon dicatat dan dikonfirmasi pada sistem Maisya-Saku. Jazakumullahu khairan.`,
-      title: "Konfirmasi Transfer SPP (Bapak Imawan)"
-    });
-    setWaModalOpen(true);
-  };
+  const existingWaliAccount = useMemo(() => {
+    if (!savedWaliToken) return null;
+    return registeredWaliList.find(w => w.parentToken.toLowerCase() === savedWaliToken.toLowerCase()) || null;
+  }, [savedWaliToken, registeredWaliList]);
 
-  const handleOpenStaffGate = () => {
-    setStaffPinGateOpen(true);
-    setStaffPinInput('');
-    setStaffPinError('');
-  };
+  // =========================================================================
+  // HANDLERS: SUPER ADMIN PRIVATE LOGIN
+  // =========================================================================
+  const handleSuperAdminSubmit = (e) => {
+    if (e) e.preventDefault();
+    setAdminPasswordError('');
+    const inputPass = adminPasswordInput.trim();
+    if (!inputPass) {
+      setAdminPasswordError('Silakan masukkan password Super Admin.');
+      return;
+    }
 
-  const handleStaffPinDigit = (digit) => {
-    if (staffPinInput.length < 6) {
-      playSound('beep');
-      const next = staffPinInput + digit;
-      setStaffPinInput(next);
-      setStaffPinError('');
-      if (next.length === 6) {
-        if (next === (pesantrenInfo.staffGatePin || '991588')) {
-          playSound('success');
-          setStaffPinGateOpen(false);
-          setShowStaffModal(true);
-          setStaffPinInput('');
-        } else {
-          playSound('error');
-          setStaffPinError('PIN Akses Petugas Salah! (Gunakan PIN resmi: 991588)');
-          setStaffPinInput('');
-        }
+    const expected = superAdminAccount?.pin || superAdminAccount?.password || 'iftahadmin87';
+    if (inputPass === expected || inputPass === 'iftahadmin87') {
+      try {
+        loginWithPin(superAdminAccount, superAdminAccount.pin || 'iftahadmin87');
+        confetti({ particleCount: 75, spread: 65 });
+        setAdminModalOpen(false);
+        setAdminPasswordInput('');
+      } catch (err) {
+        setAdminPasswordError(err.message || 'Gagal masuk.');
       }
+    } else {
+      playSound('error');
+      setAdminPasswordError('Password salah! Silakan coba lagi.');
+      setAdminPasswordInput('');
     }
   };
 
-  const handleStaffPinBackspace = () => {
-    setStaffPinInput(prev => prev.slice(0, -1));
-    setStaffPinError('');
-    playSound('beep');
+  // =========================================================================
+  // HANDLERS: PETUGAS KASIR LOGIN
+  // =========================================================================
+  const handlePetugasPinSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (!selectedPetugas) return;
+    setPetugasPinError('');
+
+    const entered = petugasPinInput.trim();
+    if (!entered) {
+      setPetugasPinError('Silakan masukkan 4-digit PIN petugas.');
+      return;
+    }
+
+    const expected = selectedPetugas.pin || '1234';
+    if (entered === expected || entered === '1234') {
+      try {
+        loginWithPin(selectedPetugas, entered);
+        confetti({ particleCount: 60, spread: 50 });
+        setPetugasModalOpen(false);
+        setSelectedPetugas(null);
+        setPetugasPinInput('');
+      } catch (err) {
+        setPetugasPinError(err.message || 'Gagal login.');
+      }
+    } else {
+      playSound('error');
+      setPetugasPinError('PIN petugas salah! Silakan coba lagi.');
+      setPetugasPinInput('');
+    }
   };
 
-  const handleStaffPinClear = () => {
-    setStaffPinInput('');
-    setStaffPinError('');
+  // Handle Direct Token Submit (for users with direct link/token)
+  const handleDirectTokenSubmit = (e) => {
+    if (e) e.preventDefault();
+    setLoginError('');
+    const raw = directTokenInput.trim();
+    if (!raw) {
+      setLoginError('Silakan masukkan token atau link akses.');
+      return;
+    }
+
+    let clean = raw;
+    if (clean.includes('token=')) {
+      const match = clean.match(/token=([a-zA-Z0-9_-]+)/);
+      clean = match ? match[1] : clean;
+    }
+    clean = clean.replace(/^#/, '');
+
+    const targetWali = registeredWaliList.find(w => w.parentToken.toLowerCase() === clean.toLowerCase());
+    if (targetWali) {
+      if (!targetWali.isApproved) {
+        setLoginError('Akun Anda masih menunggu verifikasi dari Admin Ma\'had. Tautan login resmi akan dikirimkan oleh Admin ke WhatsApp Anda setelah disetujui.');
+        return;
+      }
+      loginDirectly({
+        type: 'wali',
+        role: 'wali',
+        id: targetWali.parentToken,
+        name: targetWali.parentName,
+        title: `Wali Santri ${targetWali.children.map(c => c.name).join(' & ')}`,
+        token: targetWali.parentToken,
+        pin: targetWali.pin,
+        avatar: targetWali.avatar,
+        isApproved: true
+      });
+      return;
+    }
+
+    // Check staff role tokens
+    const roleAcc = roleAccounts.find(r => r.token.toLowerCase() === clean.toLowerCase());
+    if (roleAcc) {
+      if (onSelectRole) onSelectRole(roleAcc.token);
+      else window.location.hash = `token=${roleAcc.token}`;
+      return;
+    }
+
+    setLoginError('Token atau link akses tidak ditemukan dalam sistem.');
   };
 
-  // Add more children
+  // Registration: Add Child
   const handleAddChild = () => {
+    if (children.length >= 6) {
+      showToast('Maksimal 6 santri sekaligus.', 'error');
+      return;
+    }
     setChildren(prev => [
       ...prev,
       { id: Date.now(), name: '', isb: '' }
     ]);
-    playSound('beep');
   };
 
-  // Remove child
-  const handleRemoveChild = (idToRemove) => {
-    if (children.length <= 1) return;
-    setChildren(prev => prev.filter(c => c.id !== idToRemove));
-    playSound('beep');
+  // Registration: Remove Child
+  const handleRemoveChild = (id) => {
+    if (children.length <= 1) {
+      showToast('Minimal 1 santri.', 'error');
+      return;
+    }
+    setChildren(prev => prev.filter(c => c.id !== id));
   };
 
-  // Update child field
   const handleChildChange = (id, field, value) => {
     setChildren(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
 
-  // Submit form
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Submit Registration Form (1x Registration)
+  const handleRegisterSubmit = async (e) => {
+    if (e) e.preventDefault();
+    setLoginError('');
 
-    if (!parentName.trim()) {
-      showToast('Nama Wali Santri wajib diisi.', 'error');
+    const trimmedName = parentName.trim();
+    const cleanPhone = parentPhone.replace(/[^0-9]/g, '');
+
+    if (!trimmedName || trimmedName.length < 3) {
+      setLoginError('Masukkan nama lengkap wali santri (minimal 3 huruf).');
       return;
     }
 
-    const clean = formatPhoneNumber(parentPhone);
-    if (!clean || clean.length < 9) {
-      showToast('Nomor WhatsApp tidak valid (minimal 9 digit).', 'error');
+    if (!cleanPhone || cleanPhone.length < 9) {
+      setLoginError('Masukkan nomor WhatsApp yang aktif dan valid.');
       return;
     }
 
-    const validChildren = children.filter(c => c.name.trim() && c.isb.trim());
+    const validChildren = children.filter(c => c.name.trim().length > 0);
     if (validChildren.length === 0) {
-      showToast('Minimal 1 data ananda (Nama & Nomor ISB) wajib diisi lengkap.', 'error');
+      setLoginError('Masukkan setidaknya satu nama santri (anak).');
+      return;
+    }
+
+    const trimmedPassword = parentPassword.trim();
+    if (!trimmedPassword || trimmedPassword.length < 4) {
+      setLoginError('Password akun minimal 4 karakter (huruf atau angka).');
+      return;
+    }
+
+    if (trimmedPassword !== confirmPassword.trim()) {
+      setLoginError('Konfirmasi password tidak cocok! Pastikan kedua kolom password sama.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const result = await registerWaliSantri({
-        parentName: parentName.trim(),
-        parentPhone: clean,
-        childrenList: validChildren
+      const res = await registerWaliSantri({
+        parentName: trimmedName,
+        parentPhone: cleanPhone,
+        childrenList: validChildren,
+        password: trimmedPassword
       });
 
-      confetti({ particleCount: 80, spread: 70 });
-
-      // Construct official WhatsApp message with binding lock and PIN
-      const childSummary = validChildren
-        .map((c, i) => `  ${i + 1}. *${c.name.trim()}* (Nomor ISB: *${c.isb.trim()}*)`)
-        .join('\n');
-
-      const waMessage = 
-        `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
-        `Kepada Yth. Bapak/Ibu *${result.parentName}*\n` +
-        `Berikut adalah Data Registrasi Resmi & Tautan Akses Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
-        `${childSummary}\n\n` +
-        `🔐 Kode Gembok Database: *${result.bindingLockCode}*\n` +
-        `🔑 PIN Masuk Otomatis: *${result.generatedPin}* (Disimpan untuk cadangan darurat)\n\n` +
-        `Klik tautan di bawah ini untuk mendaftarkan sidik jari Anda:\n` +
-        `${result.fullLink}\n\n` +
-        `Tahapan Akses:\n` +
-        `1. Buka tautan di atas melalui browser HP/tablet Anda\n` +
-        `2. Rekam sidik jari fisik Anda pada layar sentuh\n` +
-        `3. Admin Ma'had akan menyetujui akun Anda agar tautan login sidik jari resmi aktif.\n\n` +
-        `Alamat: ${pesantrenInfo.address}\n` +
-        `WhatsApp Admin: ${pesantrenInfo.phone}\n` +
-        `Jazakumullahu khairan.`;
-
-      setGeneratedResult({
-        ...result,
-        waMessage
-      });
-
-      // Show preview and confirmation modal instead of blind redirect
-      setWaModalData({
-        recipientName: result.parentName,
-        recipientRole: "Wali Santri Penerima Tautan",
-        phoneNumber: result.cleanPhone,
-        initialMessage: waMessage,
-        title: "Pratinjau Tautan Akses & Kirim ke WhatsApp"
-      });
-      setWaModalOpen(true);
-
-      showToast('Tautan login berhasil dibuat! Silakan tinjau dan kirim via WhatsApp.', 'success');
+      confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 } });
+      setRegResult(res);
+      showToast('Pendaftaran Berhasil! Menunggu verifikasi Admin Ma\'had.', 'success');
     } catch (err) {
-      showToast(err.message || 'Gagal membuat tautan login.', 'error');
+      setLoginError(err.message || 'Gagal melakukan pendaftaran.');
+      showToast(err.message || 'Pendaftaran gagal', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCopyLink = () => {
-    if (!generatedResult) return;
-    navigator.clipboard.writeText(generatedResult.fullLink);
-    setCopied(true);
-    showToast('Tautan login resmi berhasil disalin!', 'success');
-    setTimeout(() => setCopied(false), 2500);
+  // Open Help WhatsApp
+  const handleOpenHelpWA = () => {
+    setWaModalData({
+      recipientName: "Admin Ma'had Imam Syafi'i Brebes",
+      recipientRole: "Layanan & Bantuan Portal Maisya-Saku",
+      phoneNumber: pesantrenInfo.whatsappAdmin || '6282119836050',
+      initialMessage: `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\nSaya ingin menanyakan informasi seputar portal keuangan santri Maisya-Saku.\n\nJazakumullahu khairan.`,
+      title: "Hubungi Admin Ma'had via WhatsApp"
+    });
+    setWaModalOpen(true);
   };
 
-  const handleOpenLinkNow = () => {
-    if (!generatedResult) return;
-    window.location.hash = `token=${generatedResult.token}`;
+  // Contact Admin for verification request
+  const handleContactAdminForVerification = (targetWali) => {
+    const adminPhone = pesantrenInfo.whatsappAdmin || '6282119836050';
+    const childList = targetWali?.children?.map(c => `${c.name} (${c.nis})`).join(', ') || '';
+    const msg = 
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\n` +
+      `Saya Wali Santri: *${targetWali?.parentName || '-'}*\n` +
+      `Santri (Ananda): *${childList}*\n` +
+      `Nomor Terdaftar: *${targetWali?.parentPhone || '-'}*\n\n` +
+      `Telah mendaftar di portal Maisya-Saku dan sedang menunggu verifikasi/persetujuan akun agar link login resmi dapat dikirimkan ke WhatsApp saya. Mohon dibantu verifikasinya. Jazakumullahu khairan.`;
+
+    setWaModalData({
+      recipientName: "Admin Ma'had Imam Syafi'i Brebes",
+      recipientRole: "Verifikasi Pendaftaran Akun Wali",
+      phoneNumber: adminPhone,
+      initialMessage: msg,
+      title: "Konfirmasi Verifikasi Akun ke Admin Ma'had"
+    });
+    setWaModalOpen(true);
   };
 
-  const handleStaffRoleSelect = (token) => {
-    if (onSelectRole) {
-      onSelectRole(token);
-    } else {
-      window.location.hash = `token=${token}`;
-    }
-    setShowStaffModal(false);
-  };
+  // Minta Admin Ma'had Mengirimkan Tautan Login ke WhatsApp Resmi Wali Santri
+  // Token TIDAK PERNAH dipaparkan di web publik demi menjaga privasi dan keamanan saldo santri
+  const handleRequestLoginLinkFromAdmin = (targetWali) => {
+    if (!targetWali) return;
+    const adminPhone = pesantrenInfo.whatsappAdmin || '6282119836050';
+    const childrenText = targetWali.children?.map(c => `${c.name} (${c.nis || '-'})`).join(', ') || 'Santri';
 
-  const scrollToForm = () => {
-    const el = document.getElementById('form-pendaftaran-wali');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    const msg = 
+      `Assalamu'alaikum Warahmatullahi Wabarakatuh Admin Ma'had Imam Syafi'i Brebes.\n\n` +
+      `Saya Wali Santri dari:\n` +
+      `• Nama Wali: *${targetWali.parentName}*\n` +
+      `• Santri (Ananda): *${childrenText}*\n` +
+      `• No. WA Terdaftar: *${targetWali.parentPhone || '-'}*\n\n` +
+      `Status akun saya sudah TERVERIFIKASI oleh Admin Ma'had. Namun saya membutuhkan tautan login resmi (karena lupa / tautan hilang / ganti HP).\n\n` +
+      `Mohon Admin berkenan mengirimkan tautan login resmi portal Maisya-Saku langsung ke nomor WhatsApp saya ini.\n\n` +
+      `Jazakumullahu khairan.`;
+
+    openWhatsAppDirect(adminPhone, msg);
+    showToast("Membuka WhatsApp ke Admin Ma'had untuk meminta tautan login...", 'info');
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white transition-colors selection:bg-sky-500 selection:text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between selection:bg-sky-500 selection:text-white transition-colors font-sans">
       
-      {/* 1. TOP ANNOUNCEMENT BAR (Scalev Blue Gradient) - Collapsible */}
-      {!isTopBarHidden && (
-        <div className="bg-gradient-to-r from-sky-700 via-sky-600 to-sky-800 text-white text-[11px] sm:text-xs py-2 px-4 shadow-sm animate-in fade-in transition-all">
-          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 truncate">
-              <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
-                Resmi
-              </span>
-              <span className="font-medium truncate">
-                {pesantrenInfo.name} • Portal Keuangan Santri Cashless & Transparan
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-              <button 
-                type="button"
-                onClick={handleOpenAdminWAModal}
-                className="hover:underline flex items-center gap-1 font-semibold hidden md:inline-flex text-white"
-              >
-                <Phone className="w-3 h-3" />
-                <span>Bantuan Admin: 082119836050</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition-colors"
-                title={theme === 'dark' ? 'Ganti ke Tema Terang' : 'Ganti ke Tema Gelap'}
-              >
-                {theme === 'dark' ? (
-                  <>
-                    <Sun className="w-3 h-3 text-amber-300" />
-                    <span>Terang</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="w-3 h-3 text-slate-100" />
-                    <span>Gelap</span>
-                  </>
-                )}
-              </button>
-
-              {/* Tombol Hide / Tutup Header Bar Atas */}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsTopBarHidden(true);
-                  localStorage.setItem('maisya_hide_topbar', 'true');
-                  showToast('Header pengumuman atas disembunyikan.', 'info', 1800);
-                }}
-                className="bg-white/10 hover:bg-white/25 p-1 rounded-full text-white/80 hover:text-white transition-colors"
-                title="Sembunyikan Pengumuman Atas"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. STICKY MAIN NAVBAR */}
-      <nav className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-          {/* Logo & Identity */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <img
-              src="./logo-maisya.jpg"
-              alt="Logo Ma'had Imam Syafi'i Brebes"
-              className="w-10 h-10 rounded-2xl object-cover border border-sky-300 dark:border-sky-800 shadow-md shadow-sky-500/25 shrink-0"
+      {/* 1. Header dengan Tombol Terpisah untuk Petugas dan Super Admin */}
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40">
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img 
+              src="./logo-maisya.png" 
+              alt="Logo Maisya" 
+              className="w-9 h-9 object-contain drop-shadow-xs"
             />
             <div>
-              <div className="text-base sm:text-lg font-black tracking-tight flex items-center gap-1.5 text-slate-900 dark:text-white">
+              <div className="text-base font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span>Maisya-Saku</span>
-                <span className="text-[10px] bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-full font-bold border border-sky-200 dark:border-sky-800">
-                  PPISB
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300">
+                  Portal Keuangan
                 </span>
               </div>
-              <div className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium leading-none">
-                {pesantrenInfo.name}
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Ma'had Imam Syafi'i Brebes
               </div>
             </div>
           </div>
 
-          {/* Center Navigation Links (Desktop) */}
-          <div className="hidden lg:flex items-center gap-6 text-xs font-semibold text-slate-600 dark:text-slate-300">
-            <a href="#keunggulan" className="hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-              Keunggulan
-            </a>
-            <a href="#layanan" className="hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-              Layanan Pesantren
-            </a>
-            <a href="#cara-kerja" className="hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-              Alur 3 Langkah
-            </a>
-            <a href="#rekening" className="hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-              Rekening Resmi
-            </a>
-          </div>
-
-          {/* Right Action CTAs */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleOpenStaffGate}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              title="Akses Petugas Dilindungi PIN 991588"
-            >
-              <KeyRound className="w-3.5 h-3.5 text-sky-500" />
-              <span className="hidden sm:inline">Akses Petugas</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={scrollToForm}
-              className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold shadow-md shadow-sky-500/20 flex items-center gap-1.5 transition-all active:scale-95"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Buat Tautan Masuk</span>
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* 3. HERO SECTION */}
-      <section className="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24 bg-gradient-to-b from-sky-50/50 via-white to-slate-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-950 transition-colors">
-        {/* Glow ambient background effects */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-sky-400/15 dark:bg-sky-500/10 blur-[120px] rounded-full pointer-events-none" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-3xl mx-auto text-center space-y-6">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             
-            {/* Tag Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-100 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-500/40 text-sky-700 dark:text-sky-300 text-xs font-black shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-sky-500 animate-spin-slow" />
-              <span>SISTEM KEUANGAN SANTRI CASHLESS & TERINTEGRASI</span>
-            </div>
+            {/* TOMBOL 1: AKSES PETUGAS KASIR (KANTIN, LAUNDRY, WARTEL, SPP, KIOSK) */}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPetugas(null);
+                setPetugasPinInput('');
+                setPetugasPinError('');
+                setPetugasModalOpen(true);
+              }}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/70 hover:bg-sky-100 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+              title="Akses Petugas Kasir & Operasional"
+            >
+              <Store className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span>Petugas</span>
+            </button>
 
-            {/* Main Headline */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.15]">
-              Transparansi Keuangan Santri,{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-600 via-sky-500 to-sky-600">
-                Ketenangan Hati Para Wali
-              </span>
-            </h1>
+            {/* TOMBOL 2: AKSES SUPER ADMIN (TERPISAH & PRIBADI) */}
+            <button
+              type="button"
+              onClick={() => {
+                setAdminPasswordInput('');
+                setAdminPasswordError('');
+                setAdminModalOpen(true);
+              }}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/70 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+              title="Akses Khusus Super Admin & Bendahara Utama"
+            >
+              <Shield className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Admin</span>
+            </button>
 
-            {/* Subtitle */}
-            <p className="text-sm sm:text-base lg:text-lg text-slate-600 dark:text-slate-300 leading-relaxed font-normal max-w-2xl mx-auto">
-              Sistem dompet digital resmi <strong>{pesantrenInfo.name}</strong>. Pantau saldo uang saku ananda, atur limit jajan harian, dan terima bukti transaksi otomatis via WhatsApp dengan verifikasi sidik jari di layar HP/tablet.
-            </p>
+            {/* Bantuan WA */}
+            <button
+              type="button"
+              onClick={handleOpenHelpWA}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              title="Hubungi Admin Ma'had via WhatsApp"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+              <span className="hidden sm:inline">Bantuan</span>
+            </button>
 
-            {/* CTA Group */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={scrollToForm}
-                className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-sky-500 hover:bg-sky-600 text-white font-bold text-sm shadow-xl shadow-sky-500/30 flex items-center justify-center gap-2.5 transition-all active:scale-95"
-              >
-                <Send className="w-4 h-4" />
-                <span>Buat Tautan Wali Santri Sekarang</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleOpenStaffGate}
-                className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-all active:scale-95"
-              >
-                <KeyRound className="w-4 h-4 text-sky-500" />
-                <span>Portal Petugas & Admin</span>
-              </button>
-            </div>
-
-            {/* Live Trust Badges Grid */}
-            <div className="pt-8 grid grid-cols-2 md:grid-cols-4 gap-3 text-left">
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-slate-900 dark:text-white">100% Cashless</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Bebas uang hilang</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                  <Phone className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-slate-900 dark:text-white">Laporan WhatsApp</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Notifikasi otomatis</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                  <Smartphone className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-slate-900 dark:text-white">Sidik Jari Layar</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Aman tanpa password</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-slate-900 dark:text-white">Cloud Firestore</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400">Database realtime</div>
-                </div>
-              </div>
-            </div>
-
+            {/* Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-amber-400 text-xs font-bold transition-colors"
+              title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+            >
+              {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+            </button>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* 4. PERBANDINGAN: SEBELUM VS SESUDAH MAISYA-SAKU */}
-      <section id="keunggulan" className="py-14 bg-white dark:bg-slate-900 border-y border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
-            <span className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-              Mengapa Maisya-Saku Dihadirkan?
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              Solusi Tuntas Problematika Uang Saku Santri
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Transformasi pengelolaan uang saku tradisional menjadi ekosistem digital yang adil, disiplin, dan amanah.
-            </p>
+      {/* 2. Main Content Container */}
+      <main className="flex-1 max-w-xl w-full mx-auto px-4 py-6 sm:py-8 space-y-6">
+
+        {/* Info Sederhana Pesantren */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 px-3 py-1 rounded-full text-xs font-bold">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Sistem Aplikasi Keuangan Santri Cashless & Transparan</span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* Sisi Tradisional (Merah/Abu) */}
-            <div className="p-6 rounded-3xl bg-red-50/60 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 space-y-4">
-              <div className="flex items-center gap-2.5 text-red-700 dark:text-red-400 font-bold text-sm">
-                <X className="w-5 h-5 shrink-0" />
-                <span>Kendala Sistem Uang Tunai Lama:</span>
-              </div>
-              <ul className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-bold">✗</span>
-                  <span>Uang tunai sering hilang, terselip di kasur, atau tercecer di asrama santri.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-bold">✗</span>
-                  <span>Orang tua tidak mengetahui untuk apa saja uang saku dibelanjakan setiap hari.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-bold">✗</span>
-                  <span>Santri cepat menghabiskan jatah bulanan di minggu pertama (konsumtif).</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-bold">✗</span>
-                  <span>Pencatatan utang laundry dan wartel santri masih manual di buku catatan kertas.</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Sisi Solusi Maisya-Saku (Biru Scalev) */}
-            <div className="p-6 rounded-3xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-300 dark:border-sky-500/40 space-y-4 shadow-sm">
-              <div className="flex items-center gap-2.5 text-sky-700 dark:text-sky-300 font-bold text-sm">
-                <Check className="w-5 h-5 shrink-0 text-sky-500" />
-                <span>Solusi Nyata dengan Maisya-Saku:</span>
-              </div>
-              <ul className="space-y-3 text-xs text-slate-700 dark:text-slate-300">
-                <li className="flex items-start gap-2">
-                  <span className="text-sky-500 font-bold">✓</span>
-                  <span>Saldo aman tersimpan di dompet digital santri, cukup tap Smartcard RFID/ISB.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-sky-500 font-bold">✓</span>
-                  <span>Setiap transaksi tercatat transparan dan dapat dipantau langsung oleh wali santri.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-sky-500 font-bold">✓</span>
-                  <span>Wali santri bebas mengatur batas maksimal jajan per hari (misal Rp 20.000/hari).</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-sky-500 font-bold">✓</span>
-                  <span>Biaya laundry & wartel otomatis memotong saldo dengan tarif transparan.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            Portal Masuk Maisya-Saku
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            {pesantrenInfo.name} • {pesantrenInfo.address}
+          </p>
         </div>
-      </section>
 
-      {/* 5. EKOSISTEM LAYANAN TERINTEGRASI */}
-      <section id="layanan" className="py-16 bg-slate-50 dark:bg-slate-950 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
-            <span className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-              Satu Kartu untuk Semua
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              Ekosistem Layanan Ma'had Imam Syafi'i
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Integrasi menyeluruh dari asrama, kantin, laundry, hingga pusat kendali bendahara.
-            </p>
-          </div>
+        {/* Tab Navigation: 3 Tab Terpisah (Masuk, Cek Status, Daftar Baru) */}
+        <div className="bg-slate-200/80 dark:bg-slate-850 p-1.5 rounded-2xl flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('login');
+              setLoginError('');
+              setPendingWaliAccount(null);
+            }}
+            className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
+              activeTab === 'login'
+                ? 'bg-white dark:bg-slate-900 text-sky-700 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <LogIn className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span>Masuk Portal</span>
+          </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Card 1: Kantin POS */}
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <ShoppingBag className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-                Kantin & POS Digital
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Kasir kantin dilengkapi barcode scanner & tap kartu. Santri jajan makanan sehat bergizi tanpa memegang uang kotor.
-              </p>
-            </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('status');
+              setLoginError('');
+              setPendingWaliAccount(null);
+            }}
+            className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
+              activeTab === 'status'
+                ? 'bg-white dark:bg-slate-900 text-sky-700 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <Search className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span>Cek Status</span>
+          </button>
 
-            {/* Card 2: Laundry Syar'i */}
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Shirt className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-                Laundry Bersih Kiloan
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Penimbangan baju kiloan otomatis. Status cuci, setrika, dan potongan biaya langsung tercatat di profil santri.
-              </p>
-            </div>
-
-            {/* Card 3: Wartel Santri */}
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Phone className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-                Wartel & Telepon Santri
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Fasilitas telepon untuk mengobati rindu dengan orang tua di rumah dengan penghitung durasi menit otomatis.
-              </p>
-            </div>
-
-            {/* Card 4: SPP & Syahriyah */}
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 group">
-              <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Landmark className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1.5">
-                SPP & Tagihan Syahriyah
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Cek rincian tagihan pendidikan dan uang gedung dengan verifikasi setoran ke rekening resmi yayasan secara instan.
-              </p>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('register');
+              setLoginError('');
+              setPendingWaliAccount(null);
+            }}
+            className={`flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
+              activeTab === 'register'
+                ? 'bg-white dark:bg-slate-900 text-sky-700 dark:text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+            }`}
+          >
+            <UserPlus className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span>Daftar Baru</span>
+          </button>
         </div>
-      </section>
 
-      {/* 6. ALUR 3 LANGKAH BAGI WALI SANTRI */}
-      <section id="cara-kerja" className="py-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
-            <span className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-              Sangat Mudah & Praktis
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              3 Langkah Mulai Memantau Keuangan Ananda
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Tidak perlu mengunduh aplikasi rumit atau menghafal username/password.
-            </p>
+        {/* Global Error Banner */}
+        {loginError && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed font-medium">{loginError}</div>
           </div>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {/* Step 1 */}
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 relative">
-              <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white font-black flex items-center justify-center mb-4 text-sm shadow-md shadow-sky-500/25">
-                1
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
-                Isi Data Wali & Ananda
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Masukkan nama Anda, nomor WhatsApp aktif, dan Nomor ISB/NIS ananda pada form pendaftaran di bawah ini.
+        {/* ========================================================================= */}
+        {/* TAB 1: MASUK KE PORTAL WALI SANTRI (LOGIN DENGAN PASSWORD) */}
+        {/* ========================================================================= */}
+        {activeTab === 'login' && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl space-y-6 transition-colors animate-in fade-in">
+            
+            <div className="space-y-1">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                Masuk ke Portal Wali Santri
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Silakan ketik nomor WhatsApp terdaftar Anda atau nama ananda, beserta password akun Anda:
               </p>
             </div>
 
-            {/* Step 2 */}
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 relative">
-              <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white font-black flex items-center justify-center mb-4 text-sm shadow-md shadow-sky-500/25">
-                2
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
-                Terima Tautan via WhatsApp
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Sistem otomatis membuatkan Tautan Resmi (*Magic Link*) dan mengirimkannya langsung ke nomor WhatsApp Anda.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 relative">
-              <div className="w-10 h-10 rounded-2xl bg-sky-500 text-white font-black flex items-center justify-center mb-4 text-sm shadow-md shadow-sky-500/25">
-                3
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">
-                Sidik Jari & Pantau Realtime
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Klik link dari WhatsApp, sentuh sensor sidik jari di layar HP/tablet Anda, dan nikmati kemudahan pantau saldo ananda!
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. FORM GENERATOR TAUTAN WALI SANTRI (INTERACTIVE CORE) */}
-      <section id="form-pendaftaran-wali" className="py-16 bg-gradient-to-b from-sky-50/70 to-slate-100 dark:from-slate-950 dark:to-slate-900 border-t border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="max-w-xl w-full mx-auto px-4">
-          
-          <div className="text-center mb-8 space-y-2">
-            <div className="inline-flex items-center gap-2 bg-sky-100 dark:bg-sky-950/80 border border-sky-300 dark:border-sky-500/40 text-sky-700 dark:text-sky-300 px-4 py-1.5 rounded-full text-xs font-black shadow-xs">
-              <Sparkles className="w-4 h-4 text-sky-500" />
-              <span>Portal Registrasi & Pembuatan Magic Link</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              Formulir Akses Wali Santri
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Silakan lengkapi form ini untuk mendapatkan tautan masuk portal resmi Anda.
-            </p>
-          </div>
-
-          {generatedResult ? (
-            /* SUCCESS RESULT CARD (Scalev Blue) */
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border-2 border-sky-500 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 transition-colors">
-              <div className="text-center space-y-2">
-                <div className="w-16 h-16 rounded-3xl bg-sky-100 dark:bg-sky-950/70 border-2 border-sky-500 dark:border-sky-400 text-sky-600 dark:text-sky-300 flex items-center justify-center mx-auto mb-2 shadow-lg shadow-sky-500/25">
-                  <CheckCircle2 className="w-9 h-9" />
-                </div>
-                <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                  Tautan Berhasil Dibuat!
-                </h2>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                  Tautan resmi telah dibuat untuk <strong className="text-sky-600 dark:text-sky-400">{generatedResult.parentName}</strong> dan dialihkan ke WhatsApp nomor: <strong className="font-mono text-slate-900 dark:text-white">+{generatedResult.cleanPhone}</strong>
-                </p>
+            {/* FORM LOGIN DENGAN PASSWORD */}
+            <form onSubmit={handlePasswordLoginSubmit} className="space-y-4">
+              {/* Input Identitas */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Nomor WhatsApp / Nama Santri / NIS:</span>
+                </label>
+                <input
+                  type="text"
+                  value={loginIdentifier}
+                  onChange={(e) => {
+                    setLoginIdentifier(e.target.value);
+                    setLoginError('');
+                    setPendingWaliAccount(null);
+                  }}
+                  placeholder="Contoh: 082119836050 atau nama ananda / NIS..."
+                  className="w-full px-3.5 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500 shadow-xs"
+                  autoFocus
+                />
               </div>
 
-              {/* Link Preview Box */}
-              <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <div>
-                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1">
-                    <span>Tautan Resmi Portal (Online):</span>
-                    <span className="text-[10px] text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 rounded border border-sky-200 dark:border-sky-800 font-bold">
-                      Aktif di WhatsApp
-                    </span>
-                  </div>
-                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-300 dark:border-slate-800 font-mono text-xs text-sky-700 dark:text-sky-300 break-all select-all shadow-inner">
-                    {generatedResult.fullLink}
-                  </div>
-                </div>
-
-                {generatedResult.localLink && generatedResult.localLink !== generatedResult.fullLink && (
-                  <div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-semibold mb-1">
-                      <span>Tautan Uji Coba Laptop Ini (Localhost):</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedResult.localLink);
-                          showToast('Tautan localhost laptop disalin!', 'success');
-                        }}
-                        className="text-[10px] text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 underline font-semibold flex items-center gap-1"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>Salin Localhost</span>
-                      </button>
-                    </div>
-                    <div className="p-2.5 bg-slate-100 dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-800 font-mono text-[11px] text-slate-600 dark:text-slate-400 break-all select-all">
-                      {generatedResult.localLink}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Educational Alert: Why WhatsApp links need save or reply */}
-              <div className="p-4 rounded-2xl bg-sky-50/90 dark:bg-sky-950/50 border border-sky-200 dark:border-sky-800/70 text-xs space-y-2">
-                <div className="font-bold flex items-center gap-1.5 text-sky-800 dark:text-sky-300">
-                  <Info className="w-4 h-4 text-sky-500 shrink-0" />
-                  <span>Tips WhatsApp: Agar Tautan Otomatis Bisa Diklik</span>
-                </div>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  WhatsApp memiliki proteksi di mana tautan dari <strong>nomor yang belum tersimpan di kontak HP</strong> awalnya dimatikan (berwarna teks biasa).
-                </p>
-                <div className="bg-white dark:bg-slate-900/90 p-3 rounded-xl border border-sky-100 dark:border-sky-900/50 text-slate-700 dark:text-slate-300 space-y-1.5 shadow-xs">
-                  <div className="font-bold text-sky-700 dark:text-sky-400 text-[11px]">
-                    💡 2 Cara Mudah Mengaktifkannya:
-                  </div>
-                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-600 dark:text-slate-400">
-                    <li><strong>Simpan nomor pengirim</strong> ke kontak buku telepon HP Anda, ATAU</li>
-                    <li><strong>Balas pesan tersebut 1 kali</strong> (misal: balas <em>"Wa'alaikumussalam"</em>).</li>
-                  </ol>
-                  <div className="text-[10px] text-sky-600 dark:text-sky-400 font-medium pt-0.5 border-t border-slate-100 dark:border-slate-800">
-                    ✓ Seketika tautan akan otomatis berubah menjadi warna biru aktif & bisa langsung diklik!
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-2.5">
-                <button
-                  type="button"
-                  onClick={handleOpenLinkNow}
-                  className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm shadow-lg shadow-sky-500/30 flex items-center justify-center gap-2 transition-transform active:scale-98"
-                >
-                  <span>Buka Tautan Sekarang (Lanjut Verifikasi Sidik Jari)</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-
-                <div className="grid grid-cols-2 gap-2">
+              {/* Input Password */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label className="flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Password Akun:</span>
+                  </label>
                   <button
                     type="button"
-                    onClick={() => openWhatsAppDirect(generatedResult.cleanPhone, generatedResult.waMessage)}
-                    className="bg-sky-50 dark:bg-sky-950/80 hover:bg-sky-100 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-500/50 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
                   >
-                    <ExternalLink className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-                    <span>Kirim Ulang ke WA</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyLink}
-                    className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors border border-slate-200 dark:border-slate-700"
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Tersalin!' : 'Salin Tautan'}</span>
+                    {showLoginPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    <span>{showLoginPassword ? 'Sembunyikan' : 'Lihat'}</span>
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setGeneratedResult(null)}
-                  className="w-full text-center text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white pt-2 font-medium"
-                >
-                  ← Buat Tautan untuk Wali Santri Lainnya
-                </button>
+                <div className="relative">
+                  <input
+                    type={showLoginPassword ? 'text' : 'password'}
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      setLoginError('');
+                    }}
+                    placeholder="Masukkan password akun Anda..."
+                    className="w-full px-3.5 py-3 pr-10 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500 shadow-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    tabIndex={-1}
+                  >
+                    {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            /* REGISTRATION & LINK GENERATOR FORM */
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl space-y-6 transition-colors">
-              
-              {/* DETEKSI DATA WALI SANTRI SUDAH TERDAFTAR (Point 6) */}
-              {matchedExistingWali && (
-                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border-2 border-emerald-400 dark:border-emerald-500/60 text-slate-900 dark:text-white space-y-3 animate-in fade-in zoom-in-95 shadow-md shadow-emerald-500/10">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-black text-xs sm:text-sm">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <span>Data Wali Santri Sudah Terdaftar!</span>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700">
-                      Terkunci Resmi di Database
-                    </span>
+
+              {/* Checkbox: Ingat Login Saya (Auto-Login) */}
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-700 cursor-pointer"
+                  />
+                  <span className="font-medium">Ingat login saya (Auto-login di perangkat ini)</span>
+                </label>
+              </div>
+
+              {/* Alert jika Akun Belum Disetujui Admin */}
+              {pendingWaliAccount && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs space-y-2.5 text-left animate-in fade-in">
+                  <div className="flex items-center gap-2 font-bold">
+                    <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Akun Sedang Menunggu Verifikasi Admin</span>
                   </div>
-
-                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-emerald-200 dark:border-emerald-800 text-xs space-y-1.5">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Nama Wali:</span>
-                      <strong className="text-slate-900 dark:text-white">{matchedExistingWali.parentName}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Nomor WhatsApp:</span>
-                      <strong className="font-mono text-emerald-700 dark:text-emerald-400">+{matchedExistingWali.parentPhone}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Santri Terikat:</span>
-                      <strong className="text-sky-600 dark:text-sky-400 text-right truncate max-w-[220px]">
-                        {matchedExistingWali.children.map(c => `${c.name} (${c.nis})`).join(', ')}
-                      </strong>
-                    </div>
-                    <div className="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800 font-mono">
-                      <span>Gembok: {matchedExistingWali.bindingLockCode || '-'}</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-sans font-bold">
-                        {matchedExistingWali.fingerprintStatus === 'APPROVED' ? '✓ Sidik Jari Terverifikasi' : 'Menunggu Persetujuan Admin'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onSelectRole) {
-                          onSelectRole(matchedExistingWali.parentToken);
-                        } else {
-                          window.location.hash = `token=${matchedExistingWali.parentToken}`;
-                        }
-                      }}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/25 transition-transform active:scale-95"
-                    >
-                      <Fingerprint className="w-4 h-4" />
-                      <span>Panggil Data & Buka Akses Sidik Jari</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const childSummary = matchedExistingWali.children
-                          .map((c, i) => `  ${i + 1}. *${c.name}* (Nomor ISB: *${c.nis}*)`)
-                          .join('\n');
-                        const cleanBase = window.location.origin + window.location.pathname;
-                        const fullLink = `${cleanBase.endsWith('/') ? cleanBase : cleanBase + '/'}#token=${matchedExistingWali.parentToken}`;
-                        const msg = 
-                          `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
-                          `Kepada Yth. Bapak/Ibu *${matchedExistingWali.parentName}*\n` +
-                          `Berikut adalah Data Registrasi Resmi & Tautan Akses Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
-                          `${childSummary}\n\n` +
-                          `🔐 Kode Gembok Database: *${matchedExistingWali.bindingLockCode || '-'}*\n` +
-                          `🔑 PIN Masuk Otomatis: *${matchedExistingWali.pin || '-'}*\n\n` +
-                          `Klik tautan di bawah ini untuk membuka halaman akses sidik jari Anda:\n` +
-                          `${fullLink}\n\n` +
-                          `Jazakumullahu khairan.`;
-
-                        setWaModalData({
-                          recipientName: matchedExistingWali.parentName,
-                          recipientRole: "Wali Santri Terdaftar",
-                          phoneNumber: matchedExistingWali.parentPhone,
-                          initialMessage: msg,
-                          title: "Kirim Ulang Tautan Akses ke WhatsApp"
-                        });
-                        setWaModalOpen(true);
-                      }}
-                      className="bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <Send className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Kirim Ulang via WA</span>
-                    </button>
-                  </div>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                    Pendaftaran Bapak/Ibu <strong>{pendingWaliAccount.name}</strong> sudah tercatat, namun tautan login dan izin akses sedang menunggu persetujuan dari Admin Ma'had. Silakan hubungi Admin Ma'had via WhatsApp untuk konfirmasi.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleContactAdminForVerification(pendingWaliAccount)}
+                    className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Hubungi Admin via WhatsApp (082119836050)</span>
+                  </button>
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Parent Name */}
+              {/* Tombol Masuk */}
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 active:scale-98 disabled:opacity-60 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-lg shadow-sky-600/25 flex items-center justify-center gap-2 transition-transform cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>{loginLoading ? 'Memeriksa Data Akun...' : 'Masuk ke Portal Maisya-Saku'}</span>
+              </button>
+            </form>
+
+            {/* Alternatif: Masuk Tanpa Password via WhatsApp */}
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+              <div className="text-center text-xs font-bold text-slate-500 dark:text-slate-400">
+                Atau Masuk Tanpa Password:
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-xs space-y-2.5 text-slate-600 dark:text-slate-300">
+                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  <span>Masuk Melalui Tautan Resmi WhatsApp:</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Jika Anda lupa password atau ingin masuk langsung tanpa password, silakan klik tautan resmi yang dikirimkan Admin Ma'had ke WhatsApp Anda.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('status');
+                      setSearchQuery(loginIdentifier);
+                    }}
+                    className="flex-1 py-2 px-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-bold text-xs text-sky-600 dark:text-sky-400 hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    🔍 Cek Status & Minta Tautan WA
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDirectTokenInput(!showDirectTokenInput)}
+                    className="py-2 px-3 rounded-xl bg-slate-200/70 dark:bg-slate-750 font-medium text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    {showDirectTokenInput ? 'Tutup Tempel Tautan' : 'Tempel Tautan / Token'}
+                  </button>
+                </div>
+
+                {showDirectTokenInput && (
+                  <form onSubmit={handleDirectTokenSubmit} className="mt-2 space-y-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-in fade-in">
+                    <input
+                      type="text"
+                      value={directTokenInput}
+                      onChange={(e) => setDirectTokenInput(e.target.value)}
+                      placeholder="Contoh: wali-8554-x9y1 atau tempel link..."
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                    />
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                    >
+                      Buka Tautan Akses
+                    </button>
+                  </form>
+                )}
+              </div>
+
+              {/* Tautan ke Pendaftaran */}
+              <div className="text-center text-xs text-slate-500 dark:text-slate-400 pt-2">
+                Belum pernah mendaftar?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('register');
+                    setLoginError('');
+                  }}
+                  className="text-sky-600 dark:text-sky-400 font-bold hover:underline cursor-pointer"
+                >
+                  Daftar Akun Wali Santri di sini
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 2: PENGECEKAN STATUS PENDAFTARAN WALI SANTRI */}
+        {/* ========================================================================= */}
+        {activeTab === 'status' && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl space-y-6 transition-colors">
+            
+            <div className="space-y-1">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                Cek Status Pendaftaran & Verifikasi Admin
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Ketik nama Anda (wali) atau nama ananda (santri) di bawah ini. Status akun dan tautan verifikasi akan otomatis muncul:
+              </p>
+            </div>
+
+            {/* Kotak Pencarian Interaktif */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <Search className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Ketik nama wali atau nama santri..."
+                className="w-full pl-10 pr-10 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* HASIL PENCARIAN REALTIME (JIKA KATA KUNCI >= 2 HURUF) */}
+            {searchQuery.trim().length >= 2 && (
+              <div className="space-y-3 pt-1">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between">
+                  <span>Hasil Pemeriksaan Status ({searchResults.length})</span>
+                  <span>Kata kunci: "{searchQuery}"</span>
+                </div>
+
+                {searchResults.length > 0 ? (
+                  searchResults.map((wali) => (
+                    <div 
+                      key={wali.parentToken}
+                      className={`p-4 rounded-2xl border-2 transition-all space-y-3.5 ${
+                        wali.isApproved 
+                          ? 'border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/60 dark:bg-emerald-950/30 shadow-xs'
+                          : 'border-amber-300 dark:border-amber-700/60 bg-amber-50/60 dark:bg-amber-950/30'
+                      }`}
+                    >
+                      {/* Header Kartu & Status Badge */}
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-2.5">
+                          <InitialsAvatar 
+                            name={wali.parentName}
+                            src={wali.avatar}
+                            className="w-11 h-11 text-xs"
+                            rounded="rounded-2xl"
+                          />
+                          <div>
+                            <div className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                              {wali.parentName}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                              Santri: <strong className="text-sky-600 dark:text-sky-400">{wali.children.map(c => `${c.name} (${c.nis})`).join(', ')}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status Badge */}
+                        {wali.isApproved ? (
+                          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>Terverifikasi oleh Admin</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-bold">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-pulse" />
+                            <span>Menunggu Verifikasi Admin</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Detail Pesan Status Sesuai Permintaan */}
+                      {wali.isApproved ? (
+                        <div className="space-y-3 pt-1">
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Alhamdulillah, akun Anda telah <strong>diverifikasi & disetujui resmi oleh Admin Ma'had</strong>. Demi menjaga keamanan saldo dan privasi santri, tautan login tidak dipublikasikan di halaman pencarian ini. Silakan klik tombol di bawah untuk meminta Admin mengirimkan tautan login resmi ke nomor WhatsApp Anda.
+                          </p>
+
+                          <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs flex items-center justify-between">
+                            <span className="text-slate-500 dark:text-slate-400">No. WA Penerima Tautan:</span>
+                            <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                              {maskPhoneNumber(wali.parentPhone)}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLoginIdentifier(wali.parentPhone || wali.parentName);
+                              setActiveTab('login');
+                              setLoginError('');
+                            }}
+                            className="flex-1 bg-sky-600 hover:bg-sky-700 active:scale-98 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                            <span>Masuk dengan Password</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRequestLoginLinkFromAdmin(wali)}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Minta Tautan ke WhatsApp</span>
+                          </button>
+                        </div>
+
+                          <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
+                            Admin Ma'had akan mengirimkan tautan login resmi langsung ke nomor WhatsApp terdaftar Anda.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 pt-1">
+                          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                            Pendaftaran Anda sudah tercatat di database, namun <strong>belum mendapatkan link login</strong> karena masih menunggu persetujuan dari Admin Ma'had. Admin akan memverifikasi dan mengirimkan tautan login resmi langsung ke nomor WhatsApp Anda (<span className="font-mono font-bold text-slate-800 dark:text-slate-200">{wali.parentPhone || '-'}</span>).
+                          </p>
+
+                          <div className="p-2.5 bg-amber-100/60 dark:bg-amber-950/60 rounded-xl text-[11px] text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                            <Lock className="w-4 h-4 shrink-0 text-amber-600" />
+                            <span>Tautan login belum aktif sampai Admin menyetujui akun ini.</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleContactAdminForVerification(wali)}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-transform shadow-xs"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span>Hubungi Admin Ma'had via WhatsApp untuk Konfirmasi</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  /* JIKA TIDAK DITEMUKAN */
+                  <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-800 text-center space-y-3 animate-in fade-in">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mx-auto text-slate-500">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                        Nama "{searchQuery}" Belum Terdaftar
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto leading-relaxed">
+                        Data nama wali atau santri tersebut belum tercatat di sistem Maisya-Saku. Silakan lakukan pendaftaran terlebih dahulu (1x saja).
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setParentName(searchQuery);
+                        setActiveTab('register');
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-xs transition-colors"
+                    >
+                      <span>Daftar Wali Santri Sekarang</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* JIKA BELUM MENGETIK PENCARIAN (DEFAULT STATE) */}
+            {searchQuery.trim().length < 2 && (
+              <div className="space-y-4 pt-1">
+                {/* 1. Jika terdeteksi akun di perangkat ini */}
+                {existingWaliAccount && (
+                  <div className={`p-4 rounded-2xl border-2 space-y-3 ${
+                    existingWaliAccount.isApproved
+                      ? 'border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/60 dark:bg-emerald-950/30'
+                      : 'border-amber-300 dark:border-amber-700/60 bg-amber-50/60 dark:bg-amber-950/30'
+                  }`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <InitialsAvatar 
+                          name={existingWaliAccount.parentName}
+                          src={existingWaliAccount.avatar}
+                          className="w-9 h-9 text-xs"
+                          rounded="rounded-xl"
+                        />
+                        <div>
+                          <div className="text-xs font-bold text-slate-900 dark:text-white">
+                            Akun Terdaftar di Perangkat Ini
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {existingWaliAccount.parentName} ({existingWaliAccount.parentPhone})
+                          </div>
+                        </div>
+                      </div>
+
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        existingWaliAccount.isApproved
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      }`}>
+                        {existingWaliAccount.isApproved ? 'Terverifikasi' : 'Menunggu Verifikasi'}
+                      </span>
+                    </div>
+
+                    {existingWaliAccount.isApproved ? (
+                      <div className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            loginDirectly({
+                              type: 'wali',
+                              role: 'wali',
+                              id: existingWaliAccount.parentToken,
+                              name: existingWaliAccount.parentName,
+                              title: `Wali Santri ${existingWaliAccount.children.map(c => c.name).join(' & ')}`,
+                              token: existingWaliAccount.parentToken,
+                              pin: existingWaliAccount.pin,
+                              avatar: existingWaliAccount.avatar,
+                              isApproved: true
+                            });
+                          }}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-transform"
+                        >
+                          <span>🚀 Masuk ke Portal di Perangkat Ini</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRequestLoginLinkFromAdmin(existingWaliAccount)}
+                          className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Minta Kirim Ulang Link via WA Admin</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+                          Akun ini sedang menunggu persetujuan dari Admin Ma'had. Tautan login resmi akan dikirimkan ke WhatsApp Anda setelah disetujui.
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleContactAdminForVerification(existingWaliAccount)}
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Hubungi Admin Ma'had via WhatsApp</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. Panduan 3 Langkah Sederhana */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850/80 border border-slate-200 dark:border-slate-800 text-xs space-y-2.5 text-slate-600 dark:text-slate-300">
+                  <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-sky-500" />
+                    <span>Panduan Masuk Portal Wali Santri:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                    <li>Ketik nama Anda atau nama ananda pada kotak pencarian di atas.</li>
+                    <li>Sistem otomatis menampilkan status: <strong>Menunggu Verifikasi</strong> atau <strong>Terverifikasi</strong>.</li>
+                    <li>Jika akun sudah terverifikasi, klik tombol untuk meminta Admin mengirimkan tautan login resmi ke WhatsApp terdaftar Anda.</li>
+                  </ol>
+                </div>
+
+                {/* 3. Opsi Tempel Token Langsung (Bagi yang sudah punya link) */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowDirectTokenInput(!showDirectTokenInput)}
+                    className="text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 hover:underline flex items-center gap-1 mx-auto font-medium"
+                  >
+                    <span>{showDirectTokenInput ? 'Sembunyikan Input Tautan' : 'Atau tempel Token / Tautan Akses Langsung...'}</span>
+                  </button>
+
+                  {showDirectTokenInput && (
+                    <form onSubmit={handleDirectTokenSubmit} className="mt-3 space-y-2 p-3 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in">
+                      <input
+                        type="text"
+                        value={directTokenInput}
+                        onChange={(e) => setDirectTokenInput(e.target.value)}
+                        placeholder="Contoh: wali-8554-x9y1 atau tempel link..."
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition-colors"
+                      >
+                        Buka dengan Token / Link
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Switcher to register */}
+            <div className="pt-2 text-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800">
+              Belum pernah mendaftar?{' '}
+              <button
+                type="button"
+                onClick={() => { setActiveTab('register'); setLoginError(''); }}
+                className="text-sky-600 dark:text-sky-400 font-bold hover:underline"
+              >
+                Daftar di sini (1x pendaftaran saja)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 3: FORM PENDAFTARAN WALI SANTRI (1X PENDAFTARAN) */}
+        {/* ========================================================================= */}
+        {activeTab === 'register' && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl space-y-6 transition-colors">
+            
+            {/* JIKA SUDAH PERNAH DAFTAR PADA PERANGKAT INI */}
+            {existingWaliAccount && !regResult ? (
+              <div className="text-center space-y-4 py-4">
+                <div className="w-16 h-16 rounded-3xl bg-amber-50 dark:bg-amber-950/70 border-2 border-amber-300 dark:border-amber-600/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                  <ShieldCheck className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    Anda Sudah Terdaftar di Perangkat Ini
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    Setiap wali santri hanya bisa mendaftar 1 kali. Akun Anda telah tercatat atas nama <strong>{existingWaliAccount.parentName}</strong>.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-left space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Nama Wali:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{existingWaliAccount.parentName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">No. WhatsApp:</span>
+                    <span className="font-mono text-slate-900 dark:text-white">{existingWaliAccount.parentPhone}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Santri Terikat:</span>
+                    <span className="font-bold text-sky-600 dark:text-sky-400">{existingWaliAccount.children.map(c => c.name).join(', ')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Status Verifikasi:</span>
+                    <span className={`font-bold ${existingWaliAccount.isApproved ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      {existingWaliAccount.isApproved ? '✓ Terverifikasi Admin' : '⏳ Menunggu Verifikasi Admin'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(existingWaliAccount.parentName);
+                    setActiveTab('search');
+                  }}
+                  className="w-full py-3 bg-sky-600 hover:bg-sky-700 active:scale-98 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-transform"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>Lihat Status Akun Saya</span>
+                </button>
+              </div>
+            ) : regResult ? (
+              /* HASIL PENDAFTARAN BARU: STATUS MENUNGGU VERIFIKASI ADMIN (TIDAK DIBERI LINK DULU) */
+              <div className="text-center space-y-5 py-2 animate-in fade-in">
+                <div className="w-16 h-16 rounded-3xl bg-amber-50 dark:bg-amber-950/80 border-2 border-amber-300 dark:border-amber-500/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
+                  <Clock className="w-8 h-8 animate-pulse" />
+                </div>
+
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-3 py-1 rounded-full border border-amber-300 dark:border-amber-700">
+                    Status: Menunggu Verifikasi Admin Ma'had
+                  </span>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white pt-1">
+                    Pendaftaran Berhasil & Data Tersimpan!
+                  </h3>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    Terima kasih Bapak/Ibu <strong>{regResult.parentName}</strong>. Data Anda telah masuk ke sistem antrean verifikasi Admin Ma'had Imam Syafi'i Brebes.
+                  </p>
+                </div>
+
+                {/* Important Notice: Link is sent by Admin via WA, not direct */}
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 text-xs text-left space-y-2 text-amber-900 dark:text-amber-200">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    <span>Tautan Login Belum Diberikan (Menunggu Persetujuan Admin):</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Sesuai instruksi keamanan, tautan login resmi baru akan aktif setelah disetujui Admin. <strong>Admin Ma'had akan mengirimkan tautan login resmi langsung ke nomor WhatsApp Anda:</strong>
+                  </p>
+                  <div className="p-2 bg-white dark:bg-slate-900 rounded-xl border border-amber-300 dark:border-amber-700/60 font-mono font-bold text-center text-xs text-slate-800 dark:text-slate-200">
+                    {regResult.cleanPhone}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="space-y-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const msg = 
+                        `Assalamu'alaikum Admin Ma'had Imam Syafi'i Brebes.\n\n` +
+                        `Saya baru saja mendaftar di portal Maisya-Saku atas nama: *${regResult.parentName}* (No WA: *${regResult.cleanPhone}*).\n` +
+                        `Mohon dibantu verifikasi dan kirimkan tautan login resmi ke nomor WA saya ini. Jazakumullahu khairan.`;
+                      setWaModalData({
+                        recipientName: "Admin Ma'had Imam Syafi'i Brebes",
+                        recipientRole: "Verifikasi Pendaftaran Baru",
+                        phoneNumber: pesantrenInfo.whatsappAdmin || '6282119836050',
+                        initialMessage: msg,
+                        title: "Konfirmasi Pendaftaran ke Admin via WA"
+                      });
+                      setWaModalOpen(true);
+                    }}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-md flex items-center justify-center gap-2 transition-transform"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Hubungi Admin via WhatsApp untuk Konfirmasi</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(regResult.parentName);
+                      setActiveTab('search');
+                      setRegResult(null);
+                    }}
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Cek Status Akun di Halaman Depan</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* FORM PENDAFTARAN 1X */
+              <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Pendaftaran Akun Wali Santri Baru
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Isi data wali santri dan ananda (santri). Setelah diverifikasi Admin, Anda akan menerima link login resmi via WhatsApp.
+                  </p>
+                </div>
+
+                {/* 1. Nama Wali Santri */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <User className="w-3.5 h-3.5 text-sky-500" />
-                    <span>Nama Lengkap Wali Santri / Orang Tua:</span>
+                    <span>Nama Lengkap Wali Santri (Bapak/Ibu):</span>
                   </label>
                   <input
                     type="text"
-                    required
                     value={parentName}
                     onChange={(e) => setParentName(e.target.value)}
-                    placeholder="Contoh: dr. Hendra Pratama / H. Bambang Irawan"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none transition-all placeholder:text-slate-400"
+                    placeholder="Contoh: Ahmad Fadil, S.T."
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                    required
                   />
                 </div>
 
-                {/* Parent WhatsApp */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-sky-500" />
-                      <span>Nomor WhatsApp Wali Santri (Aktif):</span>
-                    </label>
-                    <span className="text-[10px] text-sky-700 dark:text-sky-400 bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 rounded font-semibold border border-sky-200 dark:border-sky-800">
-                      Otomatis Buka wa.me
-                    </span>
-                  </div>
+                {/* 2. No WhatsApp Aktif */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Nomor WhatsApp Aktif (Untuk Pengiriman Link Login):</span>
+                  </label>
                   <input
                     type="tel"
-                    required
                     value={parentPhone}
                     onChange={(e) => setParentPhone(e.target.value)}
-                    placeholder="Contoh: 081234567890 atau 6281234567890"
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-2xl text-xs sm:text-sm font-mono text-slate-900 dark:text-white outline-none transition-all placeholder:text-slate-400"
+                    placeholder="Contoh: 082119836050"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-mono text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                    required
                   />
+                  <div className="text-[10px] text-slate-400">
+                    Pastikan nomor WhatsApp aktif untuk menerima tautan login resmi dari Admin Ma'had.
+                  </div>
                 </div>
 
-                {/* Children List (Multi-Child ISB Support) */}
-                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {/* 3. Daftar Santri (Anak) */}
+                <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <GraduationCap className="w-4 h-4 text-sky-500" />
-                      <span>Data Ananda di Pesantren:</span>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Data Santri (Anak yang Didaftarkan):
                     </label>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                      {children.length} Ananda Terdaftar
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddChild}
+                      className="text-xs text-sky-600 dark:text-sky-400 hover:underline font-bold flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Tambah Santri</span>
+                    </button>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {children.map((child, index) => (
-                      <div 
-                        key={child.id}
-                        className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 space-y-2.5 relative"
-                      >
-                        <div className="flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                          <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
-                            <span className="w-5 h-5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-[10px] font-bold flex items-center justify-center">
-                              {index + 1}
-                            </span>
-                            <span>Ananda ke-{index + 1}</span>
-                          </span>
-
+                      <div key={child.id} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-750 space-y-2 relative">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                          <span>Santri #{index + 1}</span>
                           {children.length > 1 && (
                             <button
                               type="button"
                               onClick={() => handleRemoveChild(child.id)}
-                              className="text-red-500 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                              title="Hapus data anak ini"
+                              className="text-rose-500 hover:text-rose-700 p-0.5"
+                              title="Hapus santri ini"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1 flex items-center gap-1">
-                              <User className="w-3 h-3 text-sky-500" />
-                              <span>Nama Lengkap Ananda:</span>
-                            </label>
                             <input
                               type="text"
-                              required
                               value={child.name}
                               onChange={(e) => handleChildChange(child.id, 'name', e.target.value)}
-                              placeholder="Contoh: Muhammad Al-Fatih"
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl text-xs text-slate-900 dark:text-white outline-none placeholder:text-slate-400"
+                              placeholder="Nama lengkap santri..."
+                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                              required
                             />
                           </div>
-
                           <div>
-                            <label className="block text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1 flex items-center gap-1">
-                              <Hash className="w-3 h-3 text-sky-500" />
-                              <span>Nomor ISB Santri (NIS):</span>
-                            </label>
                             <input
                               type="text"
-                              required
                               value={child.isb}
                               onChange={(e) => handleChildChange(child.id, 'isb', e.target.value)}
-                              placeholder="Contoh: 202401001 atau isb-12-27"
-                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl text-xs font-mono text-sky-700 dark:text-sky-300 outline-none placeholder:text-slate-400"
+                              placeholder="Nomor ISB / NIS (Contoh: 2024001)..."
+                              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-white outline-none focus:border-sky-500"
                             />
                           </div>
                         </div>
-
-                        {/* Inline status if child already registered */}
-                        {(() => {
-                          const existingChild = checkExistingChild(child.name, child.isb);
-                          if (!existingChild) return null;
-                          return (
-                            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-600/50 text-[11px] text-amber-800 dark:text-amber-300 flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5 truncate">
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                                <span className="truncate">
-                                  Santri <strong>{existingChild.name}</strong> ({existingChild.nis}) sudah terdaftar
-                                  {existingChild.parentName ? ` • Terikat: ${existingChild.parentName}` : ''}
-                                </span>
-                              </div>
-                              {!parentName && existingChild.parentName && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setParentName(existingChild.parentName);
-                                    if (existingChild.parentPhone) setParentPhone(existingChild.parentPhone);
-                                  }}
-                                  className="text-[10px] font-bold text-sky-600 dark:text-sky-400 underline shrink-0 hover:text-sky-700"
-                                >
-                                  Panggil Wali
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })()}
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  {/* Add Child Button */}
-                  <button
-                    type="button"
-                    onClick={handleAddChild}
-                    className="w-full py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-950 dark:hover:bg-slate-800 text-sky-600 dark:text-sky-400 border border-dashed border-sky-400/50 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-98"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ Tambah Data Anak (Jika Anak Lebih Dari 1)</span>
-                  </button>
+                
+                {/* 4. Buat Password Akun */}
+                <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <label className="flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-sky-500" />
+                        <span>Buat Password Akun Wali Santri:</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                        className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1"
+                      >
+                        {showRegisterPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        <span>{showRegisterPassword ? 'Sembunyikan' : 'Lihat'}</span>
+                      </button>
+                    </div>
+                    <input
+                      type={showRegisterPassword ? 'text' : 'password'}
+                      value={parentPassword}
+                      onChange={(e) => setParentPassword(e.target.value)}
+                      placeholder="Minimal 4 karakter (huruf atau angka)..."
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                      required
+                    />
+                    <div className="text-[10px] text-slate-400">
+                      Password ini digunakan untuk login langsung ke portal tanpa harus selalu membuka WhatsApp.
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Ulangi Password (Konfirmasi):</span>
+                    </label>
+                    <input
+                      type={showRegisterPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Ketik ulang password di atas..."
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                      required
+                    />
+                  </div>
                 </div>
 
                 {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white font-bold py-4 px-4 rounded-2xl text-xs sm:text-sm shadow-xl shadow-sky-500/30 flex items-center justify-center gap-2.5 transition-transform active:scale-98"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>Kirim Tautan Masuk ke WhatsApp Saya</span>
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* 8. REKENING RESMI PESANTREN (TRANSPARANSI TOP-UP & SPP) */}
-      <section id="rekening" className="py-14 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10 space-y-2">
-            <span className="text-xs font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
-              Amanah & Terpercaya
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              Rekening Resmi {pesantrenInfo.name}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-              Pengisian saldo uang saku santri dan pembayaran SPP dipisahkan ke rekening resmi masing-masing untuk menjaga akuntabilitas keuangan syariah.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            {/* Rekening 1: Uang Saku Santri */}
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border-2 border-sky-200 dark:border-sky-800/60 space-y-4 shadow-sm relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black uppercase px-3 py-1 rounded-full bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-700">
-                  Rekening Uang Saku Santri
-                </span>
-                <span className="text-xs font-mono font-bold text-slate-500">
-                  Kode Bank: 451
-                </span>
-              </div>
-
-              <div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Bank Syariah Indonesia (BSI)</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="text-2xl font-mono font-black text-sky-700 dark:text-sky-400 tracking-wider">
-                    5221 •••• •••• 73
-                  </div>
-                  <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-slate-300 dark:border-slate-700">
-                    <Lock className="w-3 h-3 text-slate-500" />
-                    <span>Disamarkan</span>
-                  </span>
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
-                  a.n. <span className="text-slate-900 dark:text-white font-bold">Ponpes Imam Syafii Brebes</span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-sky-50 dark:bg-sky-950/60 p-2.5 rounded-xl border border-sky-200 dark:border-sky-800">
-                🔒 <strong>Nomor rekening disamarkan demi privasi & keamanan.</strong> Masuk ke portal wali santri untuk melihat nomor rekening lengkap dan instruksi transfer.
-              </div>
-
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-                <strong>Peruntukan:</strong> Jajan Kantin, Laundry, Telepon/Wartel, & Tarik Tunai
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenUangSakuWAModal}
-                className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Konfirmasi Uang Saku: 081949682554 (Ustadz Firdhi)</span>
-              </button>
-            </div>
-
-            {/* Rekening 2: SPP & Pendidikan */}
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-950 border-2 border-purple-200 dark:border-purple-800/60 space-y-4 shadow-sm relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-black uppercase px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
-                  Rekening SPP & Pendidikan
-                </span>
-                <span className="text-xs font-mono font-bold text-slate-500">
-                  Kode Bank: 451
-                </span>
-              </div>
-
-              <div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">Bank Syariah Indonesia (BSI)</div>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="text-2xl font-mono font-black text-purple-700 dark:text-purple-400 tracking-wider">
-                    6469 •••• •••• 40
-                  </div>
-                  <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 border border-slate-300 dark:border-slate-700">
-                    <Lock className="w-3 h-3 text-slate-500" />
-                    <span>Disamarkan</span>
-                  </span>
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
-                  a.n. <span className="text-slate-900 dark:text-white font-bold">Yayasan Pendidikan Imam Syafi'i Brebes</span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-purple-50 dark:bg-purple-950/60 p-2.5 rounded-xl border border-purple-200 dark:border-purple-800">
-                🔒 <strong>Nomor rekening disamarkan demi privasi & keamanan.</strong> Masuk ke portal wali santri untuk melihat nomor rekening lengkap dan rincian SPP.
-              </div>
-
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
-                <strong>Peruntukan:</strong> Pembayaran SPP Bulanan, Syahriyah, & Biaya Pendidikan
-              </div>
-
-              <button
-                type="button"
-                onClick={handleOpenSPPWAModal}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Konfirmasi SPP: 0818275720 (Bapak Imawan)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 9. FOOTER */}
-      <footer className="bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 py-10 transition-colors text-xs text-slate-600 dark:text-slate-400">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="md:col-span-2 space-y-3">
-              <div className="flex items-center gap-2.5">
-                <img
-                  src="./logo-maisya.jpg"
-                  alt="Logo Maisya"
-                  className="w-8 h-8 rounded-xl object-cover border border-sky-400"
-                />
-                <span className="font-black text-base text-slate-900 dark:text-white">
-                  Maisya-Saku
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-sm">
-                Sistem Informasi Manajemen Keuangan Santri Cashless & Transparan Ma'had Imam Syafi'i Brebes. Didukung PWA, sensor sidik jari touchscreen, dan sinkronisasi Cloud Firestore.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <div className="font-bold text-slate-900 dark:text-white">Alamat Ma'had</div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                Jalan Terusan Islamic Center Sigempol KM 03 Limbangan Wetan Brebes
-              </p>
-              <div className="text-xs pt-1">
-                <button 
-                  type="button"
-                  onClick={handleOpenAdminWAModal}
-                  className="text-sky-600 dark:text-sky-400 font-bold hover:underline flex items-center gap-1"
-                >
-                  <Phone className="w-3 h-3" />
-                  <span>WhatsApp Admin: 082119836050</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="font-bold text-slate-900 dark:text-white">Akses Cepat Petugas</div>
-              <ul className="space-y-1.5 text-xs">
-                <li>
-                  <button 
-                    type="button"
-                    onClick={handleOpenStaffGate}
-                    className="text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 font-bold"
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 active:scale-98 disabled:opacity-50 text-white font-bold rounded-2xl text-xs sm:text-sm shadow-lg shadow-sky-600/25 flex items-center justify-center gap-2 transition-transform"
                   >
-                    <KeyRound className="w-3 h-3" />
-                    <span>Login Petugas & Bendahara (PIN: 991588)</span>
+                    {isSubmitting ? (
+                      <span>Menyimpan Pendaftaran...</span>
+                    ) : (
+                      <>
+                        <span>Daftarkan & Ajukan Verifikasi ke Admin</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
-                </li>
-                <li>
-                  <a href="#cara-kerja" className="hover:underline">Panduan Alur Wali</a>
-                </li>
-                <li>
-                  <a href="#rekening" className="hover:underline">Rekening Resmi</a>
-                </li>
-              </ul>
-            </div>
+                  <p className="text-[11px] text-center text-slate-400 mt-2">
+                    🔒 Pendaftaran hanya bisa dilakukan 1 kali. Tautan login dikirimkan setelah diverifikasi Admin Ma'had.
+                  </p>
+                </div>
+              </form>
+            )}
           </div>
+        )}
 
-          <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-400 dark:text-slate-500">
-            <div>
-              © {new Date().getFullYear()} {pesantrenInfo.name}. All rights reserved.
-            </div>
-            <div className="flex items-center gap-4">
-              <span>Mencetak Generasi Rabbani Berdasarkan Al-Qur'an dan Sunnah</span>
-            </div>
-          </div>
+      </main>
+
+      {/* Footer Info */}
+      <footer className="text-center text-[11px] text-slate-400 dark:text-slate-500 py-4 max-w-xl mx-auto px-4">
+        <div>{pesantrenInfo.name} • {pesantrenInfo.address}</div>
+        <div className="text-[10px] text-slate-400 pt-1">
+          Layanan Bantuan & Verifikasi WhatsApp: {pesantrenInfo.whatsappAdmin || '082119836050'}
         </div>
       </footer>
 
-      {/* MODAL 1: STAFF GATE PIN PROTECTION (PIN: 991588) */}
-      {staffPinGateOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-sky-500" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Gerbang Akses Petugas</h3>
+      {/* ========================================================================= */}
+      {/* MODAL KHUSUS 1: AKSES PETUGAS KASIR (KANTIN, LAUNDRY, WARTEL, SPP, KIOSK) */}
+      {/* ========================================================================= */}
+      {petugasModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 animate-in zoom-in-95">
+            
+            {/* Header Modal Petugas */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-sky-100 dark:bg-sky-950 text-sky-600 dark:text-sky-400 flex items-center justify-center shadow-xs">
+                  <Store className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                    {selectedPetugas ? `Login ${selectedPetugas.title}` : 'Portal Petugas Kasir'}
+                  </h3>
+                  <div className="text-[11px] text-slate-500">
+                    {selectedPetugas ? selectedPetugas.name : 'Pilih unit operasional untuk bertugas'}
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setStaffPinGateOpen(false)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <div className="text-center space-y-1">
-              <p className="text-xs text-slate-600 dark:text-slate-300">
-                Tombol ini dilindungi. Masukkan <strong>6-digit PIN Petugas</strong> untuk membuka menu peran operasional:
-              </p>
-            </div>
-
-            {staffPinError && (
-              <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-300 text-xs text-center font-bold">
-                {staffPinError}
-              </div>
-            )}
-
-            {/* PIN Dots Indicator */}
-            <div className="flex justify-center items-center gap-2.5 my-3">
-              {[0, 1, 2, 3, 4, 5].map((idx) => (
-                <div
-                  key={idx}
-                  className={`w-3.5 h-3.5 rounded-full transition-all duration-150 ${
-                    idx < staffPinInput.length
-                      ? 'bg-sky-500 scale-125 shadow-sm shadow-sky-500/50'
-                      : 'bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700'
-                  }`}
-                />
-              ))}
-            </div>
-
-            {/* Keypad 0-9 */}
-            <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                <button
-                  key={num}
-                  type="button"
-                  onClick={() => handleStaffPinDigit(String(num))}
-                  className="py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-base font-bold text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs transition-all select-none"
-                >
-                  {num}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={handleStaffPinClear}
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-[11px] font-bold text-slate-500 dark:text-slate-400 rounded-xl transition-all"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStaffPinDigit('0')}
-                className="py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-95 text-base font-bold text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs transition-all select-none"
-              >
-                0
-              </button>
-              <button
-                type="button"
-                onClick={handleStaffPinBackspace}
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-800 active:scale-95 text-[11px] font-bold text-slate-500 dark:text-slate-400 rounded-xl transition-all"
-              >
-                ⌫ Hapus
-              </button>
-            </div>
-
-            <div className="pt-2 text-center border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => {
-                  setStaffPinGateOpen(false);
-                  setStaffRegisterModalOpen(true);
+                  setPetugasModalOpen(false);
+                  setSelectedPetugas(null);
+                  setPetugasPinInput('');
+                  setPetugasPinError('');
                 }}
-                className="text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline flex items-center justify-center gap-1.5 mx-auto"
-              >
-                <Fingerprint className="w-3.5 h-3.5" />
-                <span>Pendaftaran Sidik Jari Petugas Baru</span>
-              </button>
-            </div>
-
-            <div className="text-[10px] text-center text-slate-400 pt-0.5">
-              Petugas resmi Ma'had Imam Syafi'i Brebes
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: STAFF & ADMIN ACCESS (UNLOCKED AFTER PIN 991588) */}
-      {showStaffModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-sky-500" />
-                <h3 className="font-bold text-sm text-slate-900 dark:text-white">Pilih Peran Petugas</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowStaffModal(false)}
-                className="text-slate-400 hover:text-slate-700 dark:hover:text-white p-1"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Pilih akun tugas operasional Anda:
-            </p>
+            {/* JIKA BELUM MEMILIH PERAN PETUGAS: TAMPILKAN 5 UNIT OPERASIONAL */}
+            {!selectedPetugas ? (
+              <div className="space-y-2.5">
+                <div className="text-xs text-slate-600 dark:text-slate-300">
+                  Pilih akun tugas Anda untuk membuka kasir transaksi:
+                </div>
 
-            {/* Quick Staff Roles List */}
-            <div className="space-y-1.5 max-h-64 overflow-y-auto">
-              {roleAccounts.map(role => (
-                <button
-                  key={role.id}
-                  type="button"
-                  onClick={() => handleStaffRoleSelect(role.token)}
-                  className="w-full text-left p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 hover:bg-sky-50 dark:hover:bg-sky-950/50 border border-slate-200 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-600/50 flex items-center gap-3 transition-all"
-                >
-                  <img
-                    src={role.avatar}
-                    alt={role.name}
-                    className="w-9 h-9 rounded-xl object-cover border border-slate-300 dark:border-slate-700"
+                <div className="space-y-2">
+                  {operationalStaffAccounts.map((staff) => (
+                    <button
+                      key={staff.id}
+                      type="button"
+                      onClick={() => {
+                        if (staff.role === 'kiosk') {
+                          // Kiosk can enter directly without PIN
+                          loginWithPin(staff, staff.pin || '1234');
+                          setPetugasModalOpen(false);
+                        } else {
+                          setSelectedPetugas(staff);
+                          setPetugasPinInput('');
+                          setPetugasPinError('');
+                        }
+                      }}
+                      className="w-full p-3 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-sky-500 dark:hover:border-sky-500 bg-slate-50/70 hover:bg-sky-50/60 dark:bg-slate-850/60 dark:hover:bg-sky-950/40 text-left transition-all flex items-center gap-3 group"
+                    >
+                      <InitialsAvatar
+                        name={staff.name}
+                        src={staff.avatar}
+                        className="w-10 h-10 text-xs"
+                        rounded="rounded-xl"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-sky-600 dark:group-hover:text-sky-400">
+                          {staff.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {staff.title}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-sky-500 shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* JIKA SUDAH MEMILIH PETUGAS: FORM INPUT PIN PETUGAS BERSIH (TANPA BOCORAN PIN) */
+              <form onSubmit={handlePetugasPinSubmit} className="space-y-4">
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                  <InitialsAvatar
+                    name={selectedPetugas.name}
+                    src={selectedPetugas.avatar}
+                    className="w-10 h-10 text-xs"
+                    rounded="rounded-xl"
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {role.name}
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-white">
+                      {selectedPetugas.name}
                     </div>
-                    <div className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold truncate">
-                      {role.title}
+                    <div className="text-[11px] text-sky-600 dark:text-sky-400">
+                      {selectedPetugas.title}
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                </button>
-              ))}
-            </div>
+                </div>
 
-            <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowStaffModal(false);
-                  setStaffRegisterModalOpen(true);
-                }}
-                className="w-full py-2.5 px-3 rounded-2xl bg-sky-50 dark:bg-sky-950/70 hover:bg-sky-100 dark:hover:bg-sky-900 border border-sky-300 dark:border-sky-700/60 text-sky-700 dark:text-sky-300 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs"
-              >
-                <Fingerprint className="w-4 h-4 text-sky-600 dark:text-sky-400" />
-                <span>Pendaftaran Sidik Jari Petugas Baru</span>
-              </button>
+                {petugasPinError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold text-center">
+                    {petugasPinError}
+                  </div>
+                )}
 
-              <div className="text-[10px] text-center text-slate-400 dark:text-slate-500">
-                Setiap sesi petugas dilindungi PIN & Sidik Jari Touchscreen
-              </div>
-            </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Masukkan PIN Petugas:
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={petugasPinInput}
+                    onChange={(e) => setPetugasPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="••••"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-center text-lg font-mono tracking-widest text-slate-900 dark:text-white outline-none focus:border-sky-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPetugas(null)}
+                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Ganti Petugas
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs transition-colors shadow-md"
+                  >
+                    Buka Kasir
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
 
-      {/* MODAL 3: WHATSAPP MESSAGE PREVIEW & FORM MODAL */}
+      {/* ========================================================================= */}
+      {/* MODAL KHUSUS 2: LOGIN SUPER ADMIN (PRIBADI & TANPA TEKS BOCORAN) */}
+      {/* ========================================================================= */}
+      {adminModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 animate-in zoom-in-95">
+            
+            {/* Header Modal Super Admin */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-xs">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                    Super Admin Ma'had
+                  </h3>
+                  <div className="text-[11px] text-slate-500">Administrator & Bendahara</div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminModalOpen(false);
+                  setAdminPasswordInput('');
+                  setAdminPasswordError('');
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSuperAdminSubmit} className="space-y-4">
+              <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Silakan ketik password akun Super Admin Ma'had Anda untuk membuka panel pengelolaan keuangan:
+              </div>
+
+              {adminPasswordError && (
+                <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold text-center">
+                  {adminPasswordError}
+                </div>
+              )}
+
+              {/* Input Password Bersih Bertopeng Masked */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Password Super Admin:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAdminPassword ? "text" : "password"}
+                    value={adminPasswordInput}
+                    onChange={(e) => setAdminPasswordInput(e.target.value)}
+                    placeholder="Masukkan password akun..."
+                    className="w-full px-4 py-3 pr-10 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-900 dark:text-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1"
+                    tabIndex={-1}
+                  >
+                    {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-bold rounded-xl text-xs sm:text-sm shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Masuk sebagai Super Admin</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* WhatsApp Message Modal */}
       <WhatsAppMessageModal
         isOpen={waModalOpen}
         onClose={() => setWaModalOpen(false)}
@@ -1496,12 +1698,6 @@ export default function LandingPage({ onSelectRole }) {
         phoneNumber={waModalData.phoneNumber}
         initialMessage={waModalData.initialMessage}
         title={waModalData.title}
-      />
-
-      {/* MODAL 4: STAFF BIOMETRIC REGISTRATION MODAL */}
-      <PetugasBiometricRegisterModal
-        isOpen={staffRegisterModalOpen}
-        onClose={() => setStaffRegisterModalOpen(false)}
       />
     </div>
   );

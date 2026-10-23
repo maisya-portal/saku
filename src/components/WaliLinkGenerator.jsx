@@ -60,7 +60,7 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
   };
 
   // Submit form
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!parentName.trim()) {
@@ -82,7 +82,7 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
 
     setIsSubmitting(true);
     try {
-      const result = registerWaliSantri({
+      const result = await registerWaliSantri({
         parentName: parentName.trim(),
         parentPhone: clean,
         childrenList: validChildren
@@ -103,9 +103,9 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
         `Klik tautan di bawah ini untuk masuk ke portal:\n` +
         `${result.fullLink}\n\n` +
         `Tahap Selanjutnya:\n` +
-        `1. Klik tautan di atas\n` +
-        `2. Daftarkan sidik jari Anda di layar HP/tablet\n` +
-        `3. Setelah disetujui Admin, Anda dapat memantau saldo & membatasi jajan ananda secara realtime.\n\n` +
+        `1. Klik tautan di atas untuk masuk langsung ke portal wali santri\n` +
+        `2. Akun Anda akan diverifikasi oleh Admin Ma'had\n` +
+        `3. Biometrik santri untuk otorisasi belanja akan didaftarkan langsung oleh Admin / Petugas di Pondok Pesantren.\n\n` +
         `Jazakumullahu khairan.`;
 
       // Open WhatsApp directly via wa.me / app protocol
@@ -134,6 +134,9 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
 
   const handleOpenLinkNow = () => {
     if (!generatedResult) return;
+    if (onOpenStaffLogin) {
+      onOpenStaffLogin(generatedResult.token);
+    }
     window.location.hash = `token=${generatedResult.token}`;
   };
 
@@ -264,7 +267,7 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
                 onClick={handleOpenLinkNow}
                 className="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm shadow-lg shadow-sky-500/30 flex items-center justify-center gap-2 transition-transform active:scale-98"
               >
-                <span>Buka Tautan Sekarang (Lanjut Verifikasi Sidik Jari)</span>
+                <span>Buka Tautan Sekarang (Masuk ke Portal Wali Santri)</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 

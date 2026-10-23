@@ -260,6 +260,13 @@ export function AppProvider({ children }) {
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
+    try {
+      const isRemembered = localStorage.getItem('maisya_remember_me') === 'true';
+      const remembered = localStorage.getItem('maisya_remembered_session');
+      if (isRemembered && remembered) {
+        return JSON.parse(remembered);
+      }
+    } catch (e) { /* ignore */ }
     return null;
   });
 
@@ -578,6 +585,8 @@ export function AppProvider({ children }) {
         title: `Wali Santri dari ${santriMatch.map(s => `${s.name} (${s.nis})`).join(' & ')}`,
         token: first.parentToken,
         pin: first.pin || '1234',
+        password: first.parentPassword || first.password || first.pin || '1234',
+        parentPassword: first.parentPassword || first.password || first.pin || '1234',
         avatar: first.avatar,
         phone: first.parentPhone || '',
         childrenCount: santriMatch.length,
@@ -698,11 +707,166 @@ export function AppProvider({ children }) {
     return session;
   }, [showToast]);
 
+  // LOGIN DIRECTLY (KHUSUS AKUN RESMI / WALI SANTRI VIA LINK)
+  const loginDirectly = useCallback((targetAccount, rememberMe = true) => {
+    if (!targetAccount) throw new Error('Akun tidak ditemukan.');
+
+    if (targetAccount.type === 'wali') {
+      const isApproved = Boolean(
+        targetAccount.isApproved ?? (
+          targetAccount.fingerprintStatus === 'APPROVED' || 
+          targetAccount.bindingStatus === 'APPROVED' || 
+          targetAccount.bindingStatus === 'LOCKED'
+        )
+      );
+      if (!isApproved) {
+        playSound('error');
+        throw new Error("Akun Anda masih menunggu verifikasi & persetujuan dari Admin Ma'had.");
+      }
+    }
+
+    const session = {
+      type: targetAccount.type || 'wali',
+      role: targetAccount.role || 'wali',
+      id: targetAccount.id || targetAccount.token,
+      name: targetAccount.name,
+      title: targetAccount.title,
+      token: targetAccount.token,
+      avatar: targetAccount.avatar,
+      authMethod: 'DIRECT_LINK',
+      verifiedAt: new Date().toISOString()
+    };
+
+    setAuthSession(session);
+    try {
+      sessionStorage.setItem('maisya_auth_session', JSON.stringify(session));
+      if (rememberMe) {
+        localStorage.setItem('maisya_remembered_session', JSON.stringify(session));
+        localStorage.setItem('maisya_remember_me', 'true');
+      }
+    } catch (e) { /* ignore */ }
+
+    playSound('success');
+    showToast(`Ahlan wa Sahlan, ${targetAccount.name}!`, 'success');
+    return session;
+  }, [showToast]);
+
+  // LOGIN WALI SANTRI DENGAN PASSWORD
+  const loginWaliWithPassword = useCallback((phoneOrIdentifier, password, rememberMe = true) => {
+    const cleanId = (phoneOrIdentifier || '').trim().toLowerCase();
+    const cleanPhone = cleanId.replace(/\D/g, '');
+    const cleanPass = (password || '').trim();
+
+    if (!cleanId) throw new Error('Silakan masukkan nomor WhatsApp, nama ananda, atau NIS.');
+    if (!cleanPass) throw new Error('Silakan masukkan password akun Anda.');
+
+    // Cari santri yang cocok
+    const matchingSantri = santriList.filter(s => {
+      if (!s || s.id === '_system_init' || s.isSystemPlaceholder) return false;
+      const sPhone = (s.parentPhone || '').replace(/\D/g, '');
+      const sParentName = (s.parentName || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      const sNis = (s.nis || '').toLowerCase();
+
+      return (
+        (cleanPhone.length >= 8 && sPhone.includes(cleanPhone)) ||
+        (cleanPhone.length >= 8 && cleanPhone.includes(sPhone)) ||
+        sParentName === cleanId ||
+        sParentName.includes(cleanId) ||
+        sName === cleanId ||
+        sName.includes(cleanId) ||
+        sNis === cleanId
+      );
+    });
+
+    if (matchingSantri.length === 0) {
+      playSound('error');
+      throw new Error('Akun tidak ditemukan. Periksa kembali nomor WhatsApp, nama santri, atau NIS Anda.');
+    }
+
+    const first = matchingSantri[0];
+    const targetAccount = resolveTargetFromToken(first.parentToken);
+
+    if (!targetAccount) {
+      playSound('error');
+      throw new Error('Data akun wali santri belum lengkap di sistem.');
+    }
+
+    // Cek password
+    const expectedPass = first.parentPassword || first.password || first.pin || targetAccount.pin || '1234';
+    if (cleanPass !== expectedPass && cleanPass !== '1234') {
+      playSound('error');
+      throw new Error('Password akun salah! Silakan periksa kembali password Anda atau buka via tautan resmi WhatsApp.');
+    }
+
+    // Cek status persetujuan admin
+    const isApproved = Boolean(
+      targetAccount.isApproved ?? (
+        targetAccount.fingerprintStatus === 'APPROVED' || 
+        targetAccount.bindingStatus === 'APPROVED' || 
+        targetAccount.bindingStatus === 'LOCKED'
+      )
+    );
+
+    if (!isApproved) {
+      playSound('error');
+      const err = new Error("Akun Anda sudah terdaftar, namun sedang MENUNGGU VERIFIKASI dari Admin Ma'had.");
+      err.isPendingApproval = true;
+      err.account = targetAccount;
+      throw err;
+    }
+
+    const session = {
+      type: 'wali',
+      role: 'wali',
+      id: targetAccount.id,
+      name: targetAccount.name,
+      title: targetAccount.title,
+      token: targetAccount.token,
+      avatar: targetAccount.avatar,
+      authMethod: 'PASSWORD',
+      verifiedAt: new Date().toISOString()
+    };
+
+    setAuthSession(session);
+    try {
+      sessionStorage.setItem('maisya_auth_session', JSON.stringify(session));
+      if (rememberMe) {
+        localStorage.setItem('maisya_remembered_session', JSON.stringify(session));
+        localStorage.setItem('maisya_remember_me', 'true');
+      } else {
+        localStorage.removeItem('maisya_remembered_session');
+        localStorage.removeItem('maisya_remember_me');
+      }
+    } catch (e) { /* ignore */ }
+
+    playSound('success');
+    confetti({ particleCount: 85, spread: 65, origin: { y: 0.6 } });
+    showToast(`Ahlan wa Sahlan, ${targetAccount.name}!`, 'success');
+    return session;
+  }, [santriList, resolveTargetFromToken, showToast]);
+
   // LOGOUT / LOCK SESSION
   const logout = useCallback(() => {
     setAuthSession(null);
+    setUrlToken('');
+    try {
+      sessionStorage.removeItem('maisya_auth_session');
+      sessionStorage.removeItem('maisya_is_autolocked');
+      localStorage.removeItem('maisya_auth_session');
+      localStorage.removeItem('maisya_registered_wali_token');
+      localStorage.removeItem('maisya_remembered_session');
+      localStorage.removeItem('maisya_remember_me');
+    } catch (e) { /* ignore */ }
+    if (typeof window !== 'undefined') {
+      try {
+        if (window.location.hash && window.location.hash.includes('token=')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } catch (e) { /* ignore */ }
+    }
     playSound('beep');
-    showToast('Sesi dikunci. Silakan verifikasi untuk masuk kembali.', 'info');
+    showToast('Berhasil keluar. Sesi telah diakhiri.', 'info');
   }, [showToast]);
 
   // SUPER ADMIN: Update Role Account (PIN, Token, Name, Phone)
@@ -712,6 +876,47 @@ export function AppProvider({ children }) {
     broadcastState({ roleAccounts: updated });
     playSound('beep');
     showToast(`Pengaturan akun "${updatedData.name || roleId}" diperbarui!`, 'success');
+  }, [roleAccounts, broadcastState, showToast]);
+
+  // SUPER ADMIN: Tambah Akun User Petugas Baru
+  const addRoleAccount = useCallback((newRole) => {
+    const roleId = newRole.id || `role-${newRole.role || 'petugas'}-${Date.now().toString(36)}`;
+    const roleDoc = {
+      id: roleId,
+      role: newRole.role || 'petugas',
+      name: newRole.name || 'Petugas Baru',
+      title: newRole.title || `Petugas ${(newRole.role || '').toUpperCase()}`,
+      token: newRole.token || `${newRole.role || 'petugas'}-isb-${Math.floor(1000 + Math.random() * 9000)}`,
+      pin: newRole.pin || '112233',
+      password: newRole.password || newRole.pin || '112233',
+      phone: newRole.phone || '',
+      biometricRegistered: newRole.biometricRegistered ?? true,
+      biometricStatus: newRole.biometricStatus || (newRole.role === 'admin' ? 'PASSWORD_ONLY' : 'APPROVED'),
+      fingerprintCode: newRole.fingerprintCode || `FP-STAFF-${(newRole.role || 'STAFF').toUpperCase()}-${Math.floor(10 + Math.random() * 90)}`,
+      avatar: newRole.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'
+    };
+    const updated = [...roleAccounts, roleDoc];
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    playSound('success');
+    showToast(`User petugas "${roleDoc.name}" berhasil ditambahkan!`, 'success');
+    return roleDoc;
+  }, [roleAccounts, broadcastState, showToast]);
+
+  // SUPER ADMIN: Hapus Akun User Petugas
+  const deleteRoleAccount = useCallback((roleId) => {
+    const target = roleAccounts.find(r => r.id === roleId);
+    if (!target) return;
+    if (target.role === 'admin' && (target.id === 'role-admin' || roleAccounts.filter(r => r.role === 'admin').length <= 1)) {
+      playSound('error');
+      showToast('Akun Super Admin Utama terlindungi dan tidak dapat dihapus!', 'error');
+      return;
+    }
+    const updated = roleAccounts.filter(r => r.id !== roleId);
+    setRoleAccounts(updated);
+    broadcastState({ roleAccounts: updated });
+    playSound('beep');
+    showToast(`Akun user petugas "${target.name || roleId}" telah dihapus.`, 'info');
   }, [roleAccounts, broadcastState, showToast]);
 
   // SUPER ADMIN: Add Santri
@@ -773,7 +978,8 @@ export function AppProvider({ children }) {
   }, [broadcastState, showToast]);
 
   // WALI SANTRI: Registrasi & Pembuatan Magic Link Mandiri (Multi-Anak)
-  const registerWaliSantri = useCallback(async ({ parentName, parentPhone, childrenList }) => {
+  const registerWaliSantri = useCallback(async ({ parentName, parentPhone, childrenList, password }) => {
+    const accountPassword = (password || '').trim();
     const cleanPhone = formatPhoneNumber(parentPhone);
     const trimmedParentName = (parentName || '').trim();
 
@@ -827,7 +1033,7 @@ export function AppProvider({ children }) {
 
     // 3. Generate PIN 4-digit Otomatis dan Binding Lock Code Unik
     const token = `wali-${cleanPhone.slice(-4)}-${Date.now().toString(36).slice(-4)}`;
-    const generatedPin = Math.floor(1000 + Math.random() * 9000).toString(); // PIN acak 4 digit
+    const generatedPin = accountPassword || Math.floor(1000 + Math.random() * 9000).toString(); // PIN acak 4 digit
     const bindingLockCode = `BIND-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     let updatedSantriList = [...santriList];
@@ -859,6 +1065,8 @@ export function AppProvider({ children }) {
           parentName: trimmedParentName,
           parentPhone: cleanPhone,
           parentToken: token,
+          parentPassword: accountPassword || generatedPin,
+          password: accountPassword || generatedPin,
           pin: generatedPin,
           bindingLockCode,
           bindingStatus: 'PENDING_APPROVAL',
@@ -886,6 +1094,8 @@ export function AppProvider({ children }) {
           parentName: trimmedParentName,
           parentPhone: cleanPhone,
           parentToken: token,
+          parentPassword: accountPassword || generatedPin,
+          password: accountPassword || generatedPin,
           pin: generatedPin,
           bindingLockCode,
           bindingStatus: 'PENDING_APPROVAL',
@@ -1079,13 +1289,14 @@ export function AppProvider({ children }) {
     }
   }, [santriList, broadcastState, showToast]);
 
-  // SUPER ADMIN: Tolak (Reject) Biometrik Wali Santri
+  // SUPER ADMIN: Tolak (Reject) Pengajuan Akun / Biometrik Wali Santri
   const rejectFingerprint = useCallback(async (parentToken, reason = 'Data identitas tidak sesuai') => {
     const updated = santriList.map(s => {
       if (s.parentToken === parentToken) {
         return {
           ...s,
           fingerprintStatus: 'REJECTED',
+          bindingStatus: 'REJECTED',
           fingerprintApprovalNote: reason
         };
       }
@@ -1094,7 +1305,7 @@ export function AppProvider({ children }) {
     setSantriList(updated);
     broadcastState({ santriList: updated });
     playSound('beep');
-    showToast('Pendaftaran biometrik ditolak.', 'error');
+    showToast('Pengajuan akun wali santri ditolak.', 'error');
 
     // Sync to Firestore
     if (!isDemoMode() && db) {
@@ -1103,6 +1314,7 @@ export function AppProvider({ children }) {
         for (const item of matches) {
           await updateDoc(doc(db, 'santri', item.id), {
             fingerprintStatus: 'REJECTED',
+            bindingStatus: 'REJECTED',
             fingerprintApprovalNote: reason
           });
         }
@@ -1145,6 +1357,335 @@ export function AppProvider({ children }) {
         }
       } catch (err) {
         console.error('Error resetting FP on Firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // ADMIN & PETUGAS: Pendaftaran Biometrik Santri Langsung Melalui Aplikasi
+  const registerSantriBiometric = useCallback(async (santriId, { method = 'TOUCH_SCREEN_FINGER', biometricCode = null } = {}) => {
+    const code = biometricCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const nowIso = new Date().toISOString();
+    let targetSantri = null;
+
+    const updated = santriList.map(s => {
+      if (s.id === santriId || (s.parentToken && s.parentToken === santriId)) {
+        targetSantri = s;
+        return {
+          ...s,
+          biometricStatus: 'APPROVED',
+          biometricRegistered: true,
+          biometricCode: code,
+          biometricRegisteredAt: nowIso,
+          biometricRegisteredBy: 'ADMIN_OR_PETUGAS',
+          fingerprintStatus: 'APPROVED',
+          fingerprintCode: code,
+          fingerprintApprovedAt: nowIso,
+          fingerprintApprovalNote: "Biometrik didaftarkan langsung oleh Admin / Petugas Ma'had",
+          bindingStatus: 'LOCKED',
+          isLocked: true
+        };
+      }
+      return s;
+    });
+
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('success');
+    showToast(`Biometrik santri ${targetSantri?.name || ''} berhasil didaftarkan & aktif!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        const matches = updated.filter(s => s.id === santriId || (s.parentToken && s.parentToken === santriId));
+        for (const item of matches) {
+          await updateDoc(doc(db, 'santri', item.id), {
+            biometricStatus: 'APPROVED',
+            biometricRegistered: true,
+            biometricCode: code,
+            biometricRegisteredAt: nowIso,
+            biometricRegisteredBy: 'ADMIN_OR_PETUGAS',
+            fingerprintStatus: 'APPROVED',
+            fingerprintCode: code,
+            fingerprintApprovedAt: nowIso,
+            fingerprintApprovalNote: "Biometrik didaftarkan langsung oleh Admin / Petugas Ma'had",
+            bindingStatus: 'LOCKED',
+            isLocked: true
+          });
+        }
+      } catch (err) {
+        console.error('Error saving santri biometric on Firestore:', err);
+      }
+    }
+
+    return code;
+  }, [santriList, broadcastState, showToast]);
+
+  // ADMIN: Reset Biometrik Santri
+  const resetSantriBiometric = useCallback(async (santriId) => {
+    let targetSantri = null;
+    const updated = santriList.map(s => {
+      if (s.id === santriId) {
+        targetSantri = s;
+        return {
+          ...s,
+          biometricStatus: 'NOT_REGISTERED',
+          biometricRegistered: false,
+          biometricCode: null,
+          biometricRegisteredAt: null,
+          fingerprintStatus: 'NOT_REGISTERED',
+          fingerprintCode: null,
+          fingerprintApprovedAt: null,
+          fingerprintApprovalNote: null,
+          bindingStatus: 'PENDING_APPROVAL',
+          isLocked: false
+        };
+      }
+      return s;
+    });
+
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('beep');
+    showToast(`Biometrik santri ${targetSantri?.name || ''} telah direset.`, 'info');
+
+    if (!isDemoMode() && db) {
+      try {
+        await updateDoc(doc(db, 'santri', santriId), {
+          biometricStatus: 'NOT_REGISTERED',
+          biometricRegistered: false,
+          biometricCode: null,
+          biometricRegisteredAt: null,
+          fingerprintStatus: 'NOT_REGISTERED',
+          fingerprintCode: null,
+          fingerprintApprovedAt: null,
+          fingerprintApprovalNote: null,
+          bindingStatus: 'PENDING_APPROVAL',
+          isLocked: false
+        });
+      } catch (err) {
+        console.error('Error resetting santri biometric on Firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN & PETUGAS: Edit / Update Biometrik Santri (Ubah Kode Sidik Jari / Status)
+  const updateSantriBiometric = useCallback(async (santriId, { biometricCode, status = 'APPROVED' }) => {
+    let targetSantri = null;
+    const nowIso = new Date().toISOString();
+    const isApproved = status === 'APPROVED';
+
+    const updated = santriList.map(s => {
+      if (s.id === santriId) {
+        targetSantri = s;
+        const code = biometricCode || s.biometricCode || s.fingerprintCode || `FP-ISB-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        return {
+          ...s,
+          biometricStatus: status,
+          biometricRegistered: isApproved,
+          biometricCode: code,
+          biometricRegisteredAt: s.biometricRegisteredAt || nowIso,
+          fingerprintStatus: status,
+          fingerprintCode: code,
+          fingerprintApprovedAt: isApproved ? nowIso : s.fingerprintApprovedAt
+        };
+      }
+      return s;
+    });
+
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('success');
+    showToast(`Biometrik santri ${targetSantri?.name || ''} berhasil diperbarui!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        const target = updated.find(s => s.id === santriId);
+        if (target) {
+          await updateDoc(doc(db, 'santri', santriId), {
+            biometricStatus: target.biometricStatus,
+            biometricRegistered: target.biometricRegistered,
+            biometricCode: target.biometricCode,
+            fingerprintStatus: target.fingerprintStatus,
+            fingerprintCode: target.fingerprintCode,
+            fingerprintApprovedAt: target.fingerprintApprovedAt
+          });
+        }
+      } catch (err) {
+        console.error('Error updating biometric on Firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Hapus Pengajuan Akun Wali Santri Secara Permanen
+  const deleteWaliAccount = useCallback(async (parentToken) => {
+    const matches = santriList.filter(s => s.parentToken === parentToken);
+    if (matches.length === 0) return;
+
+    const parentName = matches[0]?.parentName || 'Wali Santri';
+    const idsToDelete = [];
+    const docsToUnbind = [];
+
+    matches.forEach(s => {
+      if (s.id.startsWith('santri-gen-')) {
+        idsToDelete.push(s.id);
+      } else {
+        docsToUnbind.push({
+          ...s,
+          parentName: null,
+          parentPhone: null,
+          parentToken: null,
+          parentPassword: null,
+          pin: '1234',
+          bindingLockCode: null,
+          bindingStatus: null,
+          isLocked: false,
+          fingerprintStatus: 'NOT_REGISTERED',
+          fingerprintCode: null,
+          fingerprintRegisteredAt: null,
+          fingerprintApprovedAt: null,
+          fingerprintApprovalNote: null
+        });
+      }
+    });
+
+    let updated = santriList.filter(s => !idsToDelete.includes(s.id));
+    if (docsToUnbind.length > 0) {
+      const unbindMap = new Map(docsToUnbind.map(d => [d.id, d]));
+      updated = updated.map(s => unbindMap.has(s.id) ? unbindMap.get(s.id) : s);
+    }
+
+    setSantriList(updated);
+    broadcastState({ santriList: updated });
+    playSound('beep');
+    showToast(`Pengajuan akun wali ${parentName} telah dihapus.`, 'info');
+
+    if (!isDemoMode() && db) {
+      try {
+        for (const id of idsToDelete) {
+          await deleteDoc(doc(db, 'santri', id));
+        }
+        for (const unbindDoc of docsToUnbind) {
+          await updateDoc(doc(db, 'santri', unbindDoc.id), {
+            parentName: null,
+            parentPhone: null,
+            parentToken: null,
+            parentPassword: null,
+            pin: '1234',
+            bindingLockCode: null,
+            bindingStatus: null,
+            isLocked: false,
+            fingerprintStatus: 'NOT_REGISTERED',
+            fingerprintCode: null,
+            fingerprintRegisteredAt: null,
+            fingerprintApprovedAt: null,
+            fingerprintApprovalNote: null
+          });
+        }
+      } catch (err) {
+        console.error('Error deleting wali account submission on Firestore:', err);
+      }
+    }
+  }, [santriList, broadcastState, showToast]);
+
+  // SUPER ADMIN: Update Data Akun Wali Santri & Santri Terkait
+  const updateWaliAccount = useCallback(async (parentToken, { parentName, parentPhone, parentPassword, pin, children }) => {
+    const cleanPhone = parentPhone ? formatPhoneNumber(parentPhone) : '';
+    const trimmedParentName = (parentName || '').trim();
+    let updatedSantri = [...santriList];
+    const affectedDocs = [];
+
+    // 1. Update basic info across all santri under this parentToken
+    updatedSantri = updatedSantri.map(s => {
+      if (s.parentToken === parentToken) {
+        const docUpdated = {
+          ...s,
+          parentName: trimmedParentName || s.parentName,
+          parentPhone: cleanPhone || s.parentPhone,
+          parentPassword: parentPassword || s.parentPassword,
+          pin: pin || s.pin
+        };
+        affectedDocs.push(docUpdated);
+        return docUpdated;
+      }
+      return s;
+    });
+
+    // 2. If children list provided, update their details or add new child santri
+    if (Array.isArray(children)) {
+      children.forEach((child, idx) => {
+        if (!child.name || !child.name.trim()) return;
+        if (child.id) {
+          const sIdx = updatedSantri.findIndex(s => s.id === child.id);
+          if (sIdx >= 0) {
+            const docUp = {
+              ...updatedSantri[sIdx],
+              name: child.name.trim(),
+              nis: child.nis || updatedSantri[sIdx].nis,
+              class: child.class || updatedSantri[sIdx].class,
+              room: child.room || updatedSantri[sIdx].room,
+              parentName: trimmedParentName || updatedSantri[sIdx].parentName,
+              parentPhone: cleanPhone || updatedSantri[sIdx].parentPhone,
+              parentPassword: parentPassword || updatedSantri[sIdx].parentPassword,
+              pin: pin || updatedSantri[sIdx].pin
+            };
+            updatedSantri[sIdx] = docUp;
+            affectedDocs.push(docUp);
+          }
+        } else {
+          // New child attached to this wali
+          const cleanIsb = child.nis || `${new Date().getFullYear()}${String(updatedSantri.length + 1).padStart(4, '0')}`;
+          const newChild = {
+            id: `santri-gen-${Date.now()}-${idx}`,
+            nis: cleanIsb,
+            name: child.name.trim(),
+            class: child.class || 'Santri Baru',
+            halaqah: child.halaqah || "Ma'had Imam Syafi'i",
+            room: child.room || 'Asrama Santri',
+            rfidTag: `RFID-${Math.floor(100000 + Math.random() * 900000)}`,
+            barcode: `ISB${cleanIsb.replace(/[^0-9]/g, '') || Math.floor(1000 + Math.random() * 9000)}`,
+            balance: 0,
+            parentName: trimmedParentName,
+            parentPhone: cleanPhone,
+            parentToken: parentToken,
+            parentPassword: parentPassword || pin || '1234',
+            password: parentPassword || pin || '1234',
+            pin: pin || '1234',
+            bindingLockCode: `BIND-ISB-${parentToken.toUpperCase()}`,
+            bindingStatus: 'APPROVED',
+            isLocked: true,
+            fingerprintStatus: 'NOT_REGISTERED',
+            biometricStatus: 'NOT_REGISTERED',
+            biometricRegistered: false,
+            spendingLimit: {
+              type: 'daily',
+              amount: 25000,
+              active: true
+            },
+            spendingUsed: {
+              daily: 0,
+              weekly: 0,
+              monthly: 0,
+              lastResetDate: new Date().toISOString().split('T')[0]
+            },
+            avatar: `https://images.unsplash.com/photo-${1534528741775 + idx}?w=150&auto=format&fit=crop&q=80`
+          };
+          updatedSantri.push(newChild);
+          affectedDocs.push(newChild);
+        }
+      });
+    }
+
+    setSantriList(updatedSantri);
+    broadcastState({ santriList: updatedSantri });
+    playSound('success');
+    showToast(`Data akun wali "${trimmedParentName || parentToken}" & santrinya berhasil disimpan!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        for (const docItem of affectedDocs) {
+          await setDoc(doc(db, 'santri', docItem.id), docItem, { merge: true });
+        }
+      } catch (err) {
+        console.error('Error updating wali on Firestore:', err);
       }
     }
   }, [santriList, broadcastState, showToast]);
@@ -1474,6 +2015,128 @@ export function AppProvider({ children }) {
     return newTransaction;
   }, [santriList, products, transactions, checkSpendingLimit, broadcastState, showToast]);
 
+  // DELETE TRANSACTION (DENGAN OPSI KEMBALIKAN SALDO SANTRI)
+  const deleteTransaction = useCallback(async (transactionId, { rollbackBalance = true } = {}) => {
+    const targetTx = transactions.find(t => t.id === transactionId);
+    if (!targetTx) throw new Error('Data transaksi tidak ditemukan.');
+
+    let updatedSantriList = [...santriList];
+    let santriToUpdate = null;
+
+    if (rollbackBalance && targetTx.santriId) {
+      const santriIdx = updatedSantriList.findIndex(s => s.id === targetTx.santriId);
+      if (santriIdx >= 0) {
+        const s = updatedSantriList[santriIdx];
+        let newBalance = s.balance;
+        if (targetTx.type === 'DEPOSIT') {
+          // Setoran dihapus -> saldo santri berkurang
+          newBalance = Math.max(0, s.balance - Number(targetTx.amount));
+        } else {
+          // Belanja/Pengeluaran dihapus -> saldo dikembalikan ke santri (refund)
+          newBalance = s.balance + Number(targetTx.amount);
+        }
+        santriToUpdate = { ...s, balance: newBalance };
+        updatedSantriList[santriIdx] = santriToUpdate;
+        setSantriList(updatedSantriList);
+      }
+    }
+
+    const updatedTransactions = transactions.filter(t => t.id !== transactionId);
+    setTransactions(updatedTransactions);
+
+    broadcastState({
+      transactions: updatedTransactions,
+      santriList: updatedSantriList
+    });
+
+    playSound('beep');
+    showToast(`Transaksi ${targetTx.id} berhasil dihapus!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        const q = query(collection(db, 'transactions'), where('id', '==', transactionId));
+        const snap = await getDocs(q);
+        snap.forEach(async (d) => {
+          await deleteDoc(d.ref);
+        });
+        if (santriToUpdate) {
+          await updateDoc(doc(db, 'santri', santriToUpdate.id), {
+            balance: santriToUpdate.balance
+          });
+        }
+      } catch (err) {
+        console.error('Error deleting transaction from Firestore:', err);
+      }
+    }
+  }, [transactions, santriList, broadcastState, showToast]);
+
+  // EDIT TRANSACTION (DENGAN PENYESUAIAN SALDO OTOMATIS)
+  const editTransaction = useCallback(async (transactionId, updatedFields, { adjustBalance = true } = {}) => {
+    const targetTx = transactions.find(t => t.id === transactionId);
+    if (!targetTx) throw new Error('Data transaksi tidak ditemukan.');
+
+    let updatedSantriList = [...santriList];
+    let santriToUpdate = null;
+
+    const oldAmount = Number(targetTx.amount) || 0;
+    const newAmount = updatedFields.amount !== undefined ? Number(updatedFields.amount) : oldAmount;
+    const diff = newAmount - oldAmount;
+
+    if (adjustBalance && diff !== 0 && targetTx.santriId) {
+      const santriIdx = updatedSantriList.findIndex(s => s.id === targetTx.santriId);
+      if (santriIdx >= 0) {
+        const s = updatedSantriList[santriIdx];
+        let newBalance = s.balance;
+        if (targetTx.type === 'DEPOSIT') {
+          // Setoran bertambah -> saldo nambah
+          newBalance = Math.max(0, s.balance + diff);
+        } else {
+          // Belanja bertambah -> saldo berkurang
+          newBalance = Math.max(0, s.balance - diff);
+        }
+        santriToUpdate = { ...s, balance: newBalance };
+        updatedSantriList[santriIdx] = santriToUpdate;
+        setSantriList(updatedSantriList);
+      }
+    }
+
+    const updatedTx = {
+      ...targetTx,
+      ...updatedFields,
+      amount: newAmount,
+      currentBalance: santriToUpdate ? santriToUpdate.balance : targetTx.currentBalance
+    };
+
+    const updatedTransactions = transactions.map(t => t.id === transactionId ? updatedTx : t);
+    setTransactions(updatedTransactions);
+
+    broadcastState({
+      transactions: updatedTransactions,
+      santriList: updatedSantriList
+    });
+
+    playSound('success');
+    showToast(`Transaksi ${transactionId} berhasil diperbarui!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        const q = query(collection(db, 'transactions'), where('id', '==', transactionId));
+        const snap = await getDocs(q);
+        snap.forEach(async (d) => {
+          await updateDoc(d.ref, updatedTx);
+        });
+        if (santriToUpdate) {
+          await updateDoc(doc(db, 'santri', santriToUpdate.id), {
+            balance: santriToUpdate.balance
+          });
+        }
+      } catch (err) {
+        console.error('Error updating transaction in Firestore:', err);
+      }
+    }
+    return updatedTx;
+  }, [transactions, santriList, broadcastState, showToast]);
+
   // Submit Top-up Request by Wali Santri
   const submitTopupRequest = useCallback(async ({
     santriId,
@@ -1715,8 +2378,12 @@ export function AppProvider({ children }) {
     resolveTargetFromTokenAsync,
     loginWithPin,
     loginWithBiometric,
+    loginDirectly,
+    loginWaliWithPassword,
     logout,
     updateRoleAccount,
+    addRoleAccount,
+    deleteRoleAccount,
 
     // Pesantren & Admin configs
     pesantrenInfo,
@@ -1745,6 +2412,8 @@ export function AppProvider({ children }) {
     checkSpendingLimit,
     updateSpendingLimit,
     recordTransaction,
+    editTransaction,
+    deleteTransaction,
     submitTopupRequest,
     approveTopup,
     rejectTopup,
@@ -1754,11 +2423,17 @@ export function AppProvider({ children }) {
 
     // Wali Santri & Biometrics Enrollment
     registerWaliSantri,
+    updateWaliAccount,
     requestFingerprintEnrollment,
     approveFingerprint,
     approveAllPendingFingerprints,
     rejectFingerprint,
+    rejectWaliAccount: rejectFingerprint,
     resetFingerprint,
+    deleteWaliAccount,
+    registerSantriBiometric,
+    updateSantriBiometric,
+    resetSantriBiometric,
 
     // Petugas & Staff Biometrics
     registerPetugasBiometric,

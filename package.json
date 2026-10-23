@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node -e \"import('fs').then(fs => { fs.copyFileSync('dist/index.html', 'dist/404.html'); fs.cpSync('dist', 'docs', { recursive: true }); })\"",
+    "build": "vite build && node -e \"import('fs').then(fs => { fs.copyFileSync('dist/index.html', 'dist/404.html'); if (fs.existsSync('docs')) fs.rmSync('docs', { recursive: true, force: true }); fs.cpSync('dist', 'docs', { recursive: true }); })\"",
+    "deploy:fast": "npm run build && npx firebase-tools deploy --only hosting --project isb-portal",
     "lint": "oxlint",
     "preview": "vite preview"
   },

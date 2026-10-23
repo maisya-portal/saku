@@ -520,12 +520,22 @@ export function AppProvider({ children }) {
         } catch (e) { /* ignore */ }
       });
 
+      const unsubRoles = onSnapshot(doc(db, 'system', 'roleAccounts'), (docSnap) => {
+        if (docSnap.exists() && Array.isArray(docSnap.data()?.list) && docSnap.data().list.length > 0) {
+          setRoleAccounts(docSnap.data().list);
+          try {
+            localStorage.setItem('maisya_role_accounts', JSON.stringify(docSnap.data().list));
+          } catch (e) { /* ignore */ }
+        }
+      });
+
       return () => {
         unsubSantri();
         unsubTrx();
         unsubTopup();
         unsubProd();
         unsubSpp();
+        unsubRoles();
       };
     } catch (err) {
       console.warn('Firestore subscription warning:', err);
@@ -869,16 +879,22 @@ export function AppProvider({ children }) {
     showToast('Berhasil keluar. Sesi telah diakhiri.', 'info');
   }, [showToast]);
 
-  // SUPER ADMIN: Update Role Account (PIN, Token, Name, Phone)
+  // SUPER ADMIN: Update Role Account (Role, Jabatan/Title, PIN, Token, Name, Phone)
   const updateRoleAccount = useCallback((roleId, updatedData) => {
     const updated = roleAccounts.map(r => r.id === roleId ? { ...r, ...updatedData } : r);
     setRoleAccounts(updated);
     broadcastState({ roleAccounts: updated });
     playSound('beep');
-    showToast(`Pengaturan akun "${updatedData.name || roleId}" diperbarui!`, 'success');
+    showToast(`Pengaturan role & akun "${updatedData.name || roleId}" diperbarui!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        setDoc(doc(db, 'system', 'roleAccounts'), { list: updated }).catch(() => {});
+      } catch (err) { /* ignore */ }
+    }
   }, [roleAccounts, broadcastState, showToast]);
 
-  // SUPER ADMIN: Tambah Akun User Petugas Baru
+  // SUPER ADMIN: Tambah Akun User & Role Petugas Baru
   const addRoleAccount = useCallback((newRole) => {
     const roleId = newRole.id || `role-${newRole.role || 'petugas'}-${Date.now().toString(36)}`;
     const roleDoc = {
@@ -899,11 +915,17 @@ export function AppProvider({ children }) {
     setRoleAccounts(updated);
     broadcastState({ roleAccounts: updated });
     playSound('success');
-    showToast(`User petugas "${roleDoc.name}" berhasil ditambahkan!`, 'success');
+    showToast(`User petugas "${roleDoc.name}" (${roleDoc.title}) berhasil ditambahkan!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        setDoc(doc(db, 'system', 'roleAccounts'), { list: updated }).catch(() => {});
+      } catch (err) { /* ignore */ }
+    }
     return roleDoc;
   }, [roleAccounts, broadcastState, showToast]);
 
-  // SUPER ADMIN: Hapus Akun User Petugas
+  // SUPER ADMIN: Hapus Akun User & Role Petugas
   const deleteRoleAccount = useCallback((roleId) => {
     const target = roleAccounts.find(r => r.id === roleId);
     if (!target) return;
@@ -916,7 +938,13 @@ export function AppProvider({ children }) {
     setRoleAccounts(updated);
     broadcastState({ roleAccounts: updated });
     playSound('beep');
-    showToast(`Akun user petugas "${target.name || roleId}" telah dihapus.`, 'info');
+    showToast(`Akun user petugas "${target.name || roleId}" (${target.title || target.role}) telah dihapus.`, 'info');
+
+    if (!isDemoMode() && db) {
+      try {
+        setDoc(doc(db, 'system', 'roleAccounts'), { list: updated }).catch(() => {});
+      } catch (err) { /* ignore */ }
+    }
   }, [roleAccounts, broadcastState, showToast]);
 
   // SUPER ADMIN: Add Santri

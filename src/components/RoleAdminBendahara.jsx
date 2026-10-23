@@ -677,14 +677,24 @@ export default function RoleAdminBendahara() {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block mb-1 ${
-                            acc.role === 'admin'
-                              ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                              : 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
-                          }`}>
-                            {acc.role}
-                          </span>
-                          <div className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">{acc.title}</div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase inline-block ${
+                              acc.role === 'admin'
+                                ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                                : 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                            }`}>
+                              {acc.role}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingRole(acc)}
+                              className="text-slate-400 hover:text-sky-600 p-0.5 rounded cursor-pointer"
+                              title="Edit Role & Jabatan ini"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="text-[11px] text-slate-700 dark:text-slate-300 font-semibold">{acc.title}</div>
                         </td>
 
                         <td className="py-3.5 px-4 font-mono text-slate-700 dark:text-slate-300">
@@ -2725,96 +2735,196 @@ export default function RoleAdminBendahara() {
         </div>
       )}
 
-      {/* MODAL 1: EDIT ROLE KREDENSIAL / PIN */}
+      {/* MODAL 1: EDIT ROLE, JABATAN & KREDENSIAL */}
       {editingRole && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               const form = new FormData(e.target);
+              const selectedRole = form.get('role');
+              const customRoleKey = form.get('customRoleKey');
+              const finalRole = selectedRole === 'custom' && customRoleKey ? customRoleKey.trim().toLowerCase() : selectedRole;
+              const newTitle = form.get('title');
+              const newName = form.get('name');
+              const newPhone = form.get('phone');
+              const newPin = form.get('pin');
+              const newToken = form.get('token');
+
               updateRoleAccount(editingRole.id, {
-                name: form.get('name'),
-                title: form.get('title'),
-                phone: form.get('phone'),
-                pin: form.get('pin'),
-                token: form.get('token')
+                role: finalRole,
+                title: newTitle,
+                name: newName,
+                phone: newPhone,
+                pin: newPin,
+                password: newPin,
+                token: newToken
               });
               setEditingRole(null);
             }}
-            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 space-y-4"
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto"
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                Ubah Kredensial: {editingRole.name}
-              </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-sky-600" />
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Edit Role & Jabatan: {editingRole.name}
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setEditingRole(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nama Petugas:</label>
+            <div className="space-y-3.5 text-xs">
+              {/* Pilihan Role & Hak Akses Portal */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">
+                  Role / Unit Tugas (Hak Akses):
+                </label>
+                <select
+                  name="role"
+                  id="edit-role-select"
+                  defaultValue={['admin', 'kantin', 'laundry', 'wartel', 'spp', 'kiosk'].includes(editingRole.role) ? editingRole.role : 'custom'}
+                  onChange={(e) => {
+                    const titles = {
+                      admin: 'Administrator & Bendahara Utama',
+                      kantin: 'Petugas Kasir Kantin Santri',
+                      laundry: 'Petugas Laundry Pesantren',
+                      wartel: 'Petugas Wartel Santri',
+                      spp: 'Kasir SPP & Tagihan Pesantren',
+                      kiosk: 'Petugas Anjungan Mandiri (Kiosk)',
+                      custom: editingRole.title || 'Petugas Layanan Santri'
+                    };
+                    const titleInput = document.getElementById('edit-role-title');
+                    const customContainer = document.getElementById('edit-custom-role-container');
+                    if (titleInput && titles[e.target.value]) {
+                      titleInput.value = titles[e.target.value];
+                    }
+                    if (customContainer) {
+                      if (e.target.value === 'custom') {
+                        customContainer.classList.remove('hidden');
+                      } else {
+                        customContainer.classList.add('hidden');
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value="admin">ADMIN - Administrator & Bendahara Utama</option>
+                  <option value="kantin">KANTIN - Petugas Kasir Kantin Santri</option>
+                  <option value="laundry">LAUNDRY - Petugas Laundry Pesantren</option>
+                  <option value="wartel">WARTEL - Petugas Wartel Santri</option>
+                  <option value="spp">SPP - Kasir SPP & Tagihan Pesantren</option>
+                  <option value="kiosk">KIOSK - Petugas Anjungan Mandiri</option>
+                  <option value="custom">CUSTOM - Buat Role Kustom Lainnya</option>
+                </select>
+              </div>
+
+              {/* Input Custom Role Key jika memilih custom */}
+              <div
+                id="edit-custom-role-container"
+                className={`space-y-1.5 ${['admin', 'kantin', 'laundry', 'wartel', 'spp', 'kiosk'].includes(editingRole.role) ? 'hidden' : ''}`}
+              >
+                <label className="block font-bold text-slate-700 dark:text-slate-300">
+                  Kode Role Kustom (Huruf kecil tanpa spasi):
+                </label>
+                <input
+                  name="customRoleKey"
+                  defaultValue={editingRole.role}
+                  placeholder="Contoh: keamanan, kesehatan, asrama"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-mono text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Jabatan / Role Title */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">
+                  Jabatan / Posisi Resmi:
+                </label>
+                <input
+                  name="title"
+                  id="edit-role-title"
+                  defaultValue={editingRole.title}
+                  required
+                  placeholder="Contoh: Petugas Kasir Kantin Santri"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-semibold text-slate-900 dark:text-white"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Nama jabatan ini akan tampil di kolom "Role & Jabatan", profil petugas, dan struk bukti transaksi.
+                </p>
+              </div>
+
+              {/* Nama Lengkap Petugas */}
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">
+                  Nama Lengkap Petugas:
+                </label>
                 <input
                   name="name"
                   defaultValue={editingRole.name}
                   required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Jabatan / Role Title:</label>
-                <input
-                  name="title"
-                  defaultValue={editingRole.title}
-                  required
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-sky-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-semibold text-slate-900 dark:text-white"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">PIN Keamanan (6 Digit):</label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-slate-700 dark:text-slate-300">PIN Keamanan:</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pinInput = document.getElementById('edit-role-pin');
+                        if (pinInput) pinInput.value = Math.floor(100000 + Math.random() * 900000).toString();
+                      }}
+                      className="text-[10px] text-sky-600 hover:underline font-bold cursor-pointer"
+                    >
+                      Acak
+                    </button>
+                  </div>
                   <input
                     name="pin"
+                    id="edit-role-pin"
                     defaultValue={editingRole.pin}
                     required
-                    maxLength={6}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold tracking-widest text-sky-800 focus:bg-white focus:border-sky-600 outline-none text-center"
+                    maxLength={10}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold tracking-widest text-sky-800 dark:text-sky-300 focus:bg-white focus:border-sky-600 outline-none text-center"
                   />
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">No. WhatsApp:</label>
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 dark:text-slate-300">No. WhatsApp:</label>
                   <input
                     name="phone"
-                    defaultValue={editingRole.phone}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none"
+                    defaultValue={editingRole.phone || ''}
+                    placeholder="08xxxxxxxxxx"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono focus:bg-white focus:border-sky-600 outline-none text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Token Magic Link Unik:</label>
+              <div className="space-y-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">Token Magic Link Unik:</label>
                 <div className="flex gap-2">
                   <input
                     name="token"
                     id="role-token-input"
                     defaultValue={editingRole.token}
                     required
-                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono font-bold focus:bg-white focus:border-sky-600 outline-none"
+                    className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold focus:bg-white focus:border-sky-600 outline-none text-slate-900 dark:text-white"
                   />
                   <button
                     type="button"
                     onClick={() => {
                       const input = document.getElementById('role-token-input');
-                      if (input) input.value = `${editingRole.role}-isb-${Math.floor(1000 + Math.random() * 9000)}`;
+                      const roleVal = document.getElementById('edit-role-select')?.value || 'staff';
+                      if (input) input.value = `${roleVal}-isb-${Math.floor(1000 + Math.random() * 9000)}`;
                     }}
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl cursor-pointer"
                   >
                     Acak
                   </button>
@@ -2822,20 +2932,40 @@ export default function RoleAdminBendahara() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setEditingRole(null)}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-sm"
-              >
-                Simpan Perubahan
-              </button>
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Opsi Hapus Role langsung dari modal edit jika bukan protected admin */}
+              {!(editingRole.role === 'admin' && (editingRole.id === 'role-admin' || roleAccounts.filter(r => r.role === 'admin').length <= 1)) ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const toDelete = editingRole;
+                    setEditingRole(null);
+                    setDeletingRole(toDelete);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus Role</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingRole(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -3728,7 +3858,9 @@ export default function RoleAdminBendahara() {
             onSubmit={(e) => {
               e.preventDefault();
               const form = new FormData(e.target);
-              const role = form.get('role');
+              const selectedRole = form.get('role');
+              const customRoleKey = form.get('customRoleKey');
+              const role = selectedRole === 'custom' && customRoleKey ? customRoleKey.trim().toLowerCase() : selectedRole;
               const name = form.get('name');
               const title = form.get('title');
               const phone = form.get('phone');
@@ -3757,7 +3889,7 @@ export default function RoleAdminBendahara() {
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-sky-600" />
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Tambah User Petugas Baru
+                  Tambah User & Role Petugas Baru
                 </h3>
               </div>
               <button
@@ -3783,29 +3915,49 @@ export default function RoleAdminBendahara() {
                     const titles = {
                       kantin: 'Petugas Kasir Kantin Santri',
                       laundry: 'Petugas Laundry Pesantren',
-                      wartel: 'Operator Wartel Santri',
-                      spp: 'Kasir SPP & Syahriyah',
-                      kiosk: 'Petugas Kiosk Anjungan Mandiri',
-                      admin: 'Administrator & Bendahara',
+                      wartel: 'Petugas Wartel Santri',
+                      spp: 'Kasir SPP & Tagihan Pesantren',
+                      kiosk: 'Petugas Anjungan Mandiri (Kiosk)',
+                      admin: 'Administrator & Bendahara Utama',
                       custom: 'Petugas Layanan Santri'
                     };
                     const titleInput = document.getElementById('new-role-title');
                     const tokenInput = document.getElementById('new-role-token');
                     const fpInput = document.getElementById('new-role-fp');
+                    const customContainer = document.getElementById('new-custom-role-container');
                     if (titleInput) titleInput.value = titles[e.target.value] || `Petugas ${e.target.value}`;
                     if (tokenInput) tokenInput.value = `${e.target.value}-isb-${Math.floor(1000 + Math.random() * 9000)}`;
                     if (fpInput) fpInput.value = `FP-STAFF-${e.target.value.toUpperCase()}-${Math.floor(10 + Math.random() * 90)}`;
+                    if (customContainer) {
+                      if (e.target.value === 'custom') customContainer.classList.remove('hidden');
+                      else customContainer.classList.add('hidden');
+                    }
                   }}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-200 outline-none"
                 >
-                  <option value="kantin">Kasir Kantin (kantin)</option>
-                  <option value="laundry">Petugas Laundry (laundry)</option>
-                  <option value="wartel">Operator Wartel (wartel)</option>
-                  <option value="spp">Kasir SPP & Tagihan (spp)</option>
-                  <option value="kiosk">Petugas Kiosk Mandiri (kiosk)</option>
-                  <option value="admin">Super Admin / Bendahara (admin)</option>
-                  <option value="custom">Petugas Khusus Lainnya</option>
+                  <option value="kantin">KANTIN - Kasir Kantin</option>
+                  <option value="laundry">LAUNDRY - Petugas Laundry</option>
+                  <option value="wartel">WARTEL - Petugas Wartel</option>
+                  <option value="spp">SPP - Kasir SPP & Tagihan</option>
+                  <option value="kiosk">KIOSK - Petugas Kiosk Mandiri</option>
+                  <option value="admin">ADMIN - Super Admin / Bendahara</option>
+                  <option value="custom">CUSTOM - Buat Role Kustom Lainnya</option>
                 </select>
+              </div>
+
+              {/* Input Custom Role Key jika memilih custom */}
+              <div
+                id="new-custom-role-container"
+                className="space-y-1.5 hidden"
+              >
+                <label className="block font-bold text-slate-700 dark:text-slate-300">
+                  Kode Role Kustom (Huruf kecil tanpa spasi):
+                </label>
+                <input
+                  name="customRoleKey"
+                  placeholder="Contoh: keamanan, kesehatan, asrama"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl focus:bg-white focus:border-sky-600 outline-none font-mono text-slate-900 dark:text-white"
+                />
               </div>
 
               <div>
@@ -3917,7 +4069,7 @@ export default function RoleAdminBendahara() {
         </div>
       )}
 
-      {/* MODAL: HAPUS USER PETUGAS */}
+      {/* MODAL: HAPUS USER & ROLE PETUGAS */}
       {deletingRole && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
@@ -3925,7 +4077,7 @@ export default function RoleAdminBendahara() {
               <div className="flex items-center gap-2 text-rose-600">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Hapus User Petugas
+                  Hapus Role & User Petugas
                 </h3>
               </div>
               <button
@@ -3938,19 +4090,20 @@ export default function RoleAdminBendahara() {
             </div>
 
             <div className="text-xs text-slate-600 dark:text-slate-300 space-y-3">
-              <p>Apakah Anda yakin ingin menghapus akun user petugas berikut dari sistem?</p>
+              <p>Apakah Anda yakin ingin menghapus role dan akun user petugas berikut dari sistem?</p>
               <div className="bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/50 space-y-1 text-rose-950 dark:text-rose-200">
-                <div><strong>Nama:</strong> {deletingRole.name}</div>
-                <div><strong>Role:</strong> <span className="uppercase font-bold">{deletingRole.role}</span> ({deletingRole.title})</div>
+                <div><strong>Nama Petugas:</strong> {deletingRole.name}</div>
+                <div><strong>Role:</strong> <span className="uppercase font-bold">{deletingRole.role}</span></div>
+                <div><strong>Jabatan:</strong> {deletingRole.title}</div>
                 <div><strong>Token:</strong> <span className="font-mono">#{deletingRole.token}</span></div>
                 <div><strong>WhatsApp:</strong> {deletingRole.phone || '-'}</div>
               </div>
               <p className="text-[11px] text-slate-400">
-                Setelah dihapus, magic link login petugas ini tidak lagi berlaku dan tidak dapat digunakan untuk mengakses portal.
+                Setelah dihapus, hak akses dan magic link login petugas ini tidak lagi berlaku dan tidak dapat digunakan untuk mengakses portal.
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setDeletingRole(null)}
@@ -3966,7 +4119,7 @@ export default function RoleAdminBendahara() {
                 }}
                 className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer"
               >
-                Ya, Hapus Petugas
+                Ya, Hapus Role & Petugas
               </button>
             </div>
           </div>

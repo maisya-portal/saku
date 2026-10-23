@@ -34,6 +34,9 @@ function MainContent() {
         {currentRole === 'spp' && <RoleKasirSPP />}
         {currentRole === 'kiosk' && <RoleKioskSantri />}
         {currentRole === 'wali' && <RoleWaliSantri />}
+        {!['admin', 'kantin', 'laundry', 'wartel', 'spp', 'kiosk', 'wali'].includes(currentRole) && (
+          <RolePetugasKantin />
+        )}
       </main>
 
       <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400 transition-colors">

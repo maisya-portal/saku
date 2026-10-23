@@ -1,5 +1,5 @@
-// Maisya-Saku Service Worker (Build: 1792749108212)
-const BUILD_TIME = '1792749108212';
+// Maisya-Saku Service Worker (Build: 1792750146996)
+const BUILD_TIME = '1792750146996';
 const CACHE_NAME = 'maisya-saku-v' + BUILD_TIME;
 const STATIC_ASSETS = [
   './manifest.json',

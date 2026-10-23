@@ -58,6 +58,7 @@ import WhatsAppDispatchModal from './WhatsAppDispatchModal';
 import PetugasBiometricRegisterModal from './PetugasBiometricRegisterModal';
 import AvatarEditorModal from './AvatarEditorModal';
 import BiometricTouchPad from './BiometricTouchPad';
+import InitialsAvatar from './InitialsAvatar';
 
 export default function RoleAdminBendahara() {
   const {
@@ -648,10 +649,11 @@ export default function RoleAdminBendahara() {
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
                             <div className="relative group shrink-0">
-                              <img
+                              <InitialsAvatar
+                                name={acc.name}
                                 src={acc.avatar}
-                                alt={acc.name}
-                                className="w-10 h-10 rounded-xl object-cover border border-slate-300 dark:border-slate-700 shadow-xs"
+                                className="w-10 h-10 text-xs"
+                                rounded="rounded-xl"
                               />
                               <button
                                 type="button"
@@ -823,10 +825,11 @@ export default function RoleAdminBendahara() {
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="relative group">
-                          <img
+                          <InitialsAvatar
+                            name={acc.name}
                             src={acc.avatar}
-                            alt={acc.name}
-                            className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-300 dark:border-slate-700 shadow-sm"
+                            className="w-12 h-12 text-sm"
+                            rounded="rounded-2xl"
                           />
                           <button
                             type="button"
@@ -1541,10 +1544,11 @@ export default function RoleAdminBendahara() {
                   <tr key={s.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
-                        <img
+                        <InitialsAvatar
+                          name={s.name}
                           src={s.avatar}
-                          alt={s.name}
-                          className="w-9 h-9 rounded-xl object-cover border border-slate-200"
+                          className="w-9 h-9 text-xs"
+                          rounded="rounded-xl"
                         />
                         <div>
                           <div className="font-bold text-slate-900 dark:text-white">{s.name}</div>
@@ -2109,10 +2113,11 @@ export default function RoleAdminBendahara() {
                       <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
-                            <img
+                            <InitialsAvatar
+                              name={s.name}
                               src={s.avatar}
-                              alt={s.name}
-                              className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
+                              className="w-9 h-9 text-xs"
+                              rounded="rounded-xl"
                             />
                             <div>
                               <div className="font-bold text-slate-900 dark:text-white text-xs">{s.name}</div>
@@ -2263,10 +2268,11 @@ export default function RoleAdminBendahara() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <img
+                        <InitialsAvatar
+                          name={s.name}
                           src={s.avatar}
-                          alt={s.name}
-                          className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-200 dark:border-slate-700 shadow-xs shrink-0"
+                          className="w-12 h-12 text-sm"
+                          rounded="rounded-2xl"
                         />
                         <div>
                           <div className="font-bold text-slate-900 dark:text-white text-sm">{s.name}</div>
@@ -3256,10 +3262,11 @@ export default function RoleAdminBendahara() {
               </div>
 
               <div className="flex items-center gap-4 my-3">
-                <img
+                <InitialsAvatar
+                  name={selectedCardSantri.name}
                   src={selectedCardSantri.avatar}
-                  alt={selectedCardSantri.name}
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-300 shadow-md"
+                  className="w-16 h-16 text-lg border-2 border-amber-300 shadow-md"
+                  rounded="rounded-2xl"
                 />
                 <div>
                   <div className="text-base font-black leading-tight text-white">{selectedCardSantri.name}</div>

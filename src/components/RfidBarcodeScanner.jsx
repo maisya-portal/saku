@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CreditCard, ScanLine, Search, UserCheck, AlertCircle, Sparkles } from 'lucide-react';
 import { useApp, playSound } from '../context/AppContext';
+import InitialsAvatar from './InitialsAvatar';
 
 export default function RfidBarcodeScanner({ onSelectSantri, selectedSantri = null, autoFocus = true }) {
   const { santriList } = useApp();
@@ -119,10 +120,11 @@ export default function RfidBarcodeScanner({ onSelectSantri, selectedSantri = nu
       {selectedSantri ? (
         <div className="bg-sky-50 border-2 border-sky-500/50 rounded-xl p-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
-              src={selectedSantri.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"}
-              alt={selectedSantri.name}
-              className="w-12 h-12 rounded-xl object-cover border border-sky-300"
+            <InitialsAvatar
+              name={selectedSantri.name}
+              src={selectedSantri.avatar}
+              className="w-12 h-12 text-sm border border-sky-300"
+              rounded="rounded-xl"
             />
             <div>
               <div className="flex items-center gap-2">

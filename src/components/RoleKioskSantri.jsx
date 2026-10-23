@@ -14,6 +14,7 @@ import {
 import { useApp, formatRupiah, formatDateTime, playSound } from '../context/AppContext';
 import RfidBarcodeScanner from './RfidBarcodeScanner';
 import BiometricTouchPad from './BiometricTouchPad';
+import InitialsAvatar from './InitialsAvatar';
 
 export default function RoleKioskSantri() {
   const { santriList, transactions } = useApp();
@@ -122,10 +123,11 @@ export default function RoleKioskSantri() {
                   className="p-4 rounded-2xl border border-slate-200 hover:border-sky-500 bg-slate-50 hover:bg-sky-50/50 text-left transition-all group flex flex-col justify-between"
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    <img
+                    <InitialsAvatar
+                      name={s.name}
                       src={s.avatar}
-                      alt={s.name}
-                      className="w-10 h-10 rounded-xl object-cover border border-slate-200 group-hover:border-sky-500"
+                      className="w-10 h-10 text-xs"
+                      rounded="rounded-xl"
                     />
                     <div>
                       <div className="font-bold text-xs text-slate-900 group-hover:text-sky-800 line-clamp-1">
@@ -191,10 +193,11 @@ export default function RoleKioskSantri() {
           <div className="bg-gradient-to-br from-sky-500 via-sky-600 to-blue-700 text-white rounded-3xl p-6 sm:p-8 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <img
+                <InitialsAvatar
+                  name={activeSantri.name}
                   src={activeSantri.avatar}
-                  alt={activeSantri.name}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-white/40 shadow-md"
+                  className="w-20 h-20 text-2xl font-black border-2 border-white/40 shadow-md"
+                  rounded="rounded-2xl"
                 />
                 <div>
                   <div className="inline-flex items-center gap-1 bg-white/20 px-2.5 py-0.5 rounded-full text-[11px] font-bold mb-1">

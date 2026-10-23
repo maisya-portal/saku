@@ -23,6 +23,7 @@ import {
 import { useApp, playSound } from '../context/AppContext';
 import { formatPhoneNumber, openWhatsAppDirect } from '../utils/whatsapp';
 import confetti from 'canvas-confetti';
+import InitialsAvatar from './InitialsAvatar';
 
 export default function WaliLinkGenerator({ onOpenStaffLogin }) {
   const { pesantrenInfo, registerWaliSantri, roleAccounts, setUrlToken, showToast, theme, toggleTheme } = useApp();
@@ -498,10 +499,11 @@ export default function WaliLinkGenerator({ onOpenStaffLogin }) {
                   onClick={() => handleStaffRoleSelect(role.token)}
                   className="w-full text-left p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 flex items-center gap-2.5 transition-colors"
                 >
-                  <img
+                  <InitialsAvatar
+                    name={role.name}
                     src={role.avatar}
-                    alt={role.name}
-                    className="w-8 h-8 rounded-lg object-cover border border-sky-500/40"
+                    className="w-8 h-8 text-[11px]"
+                    rounded="rounded-lg"
                   />
                   <div className="overflow-hidden flex-1">
                     <div className="text-xs font-bold text-slate-900 dark:text-white truncate">{role.name}</div>

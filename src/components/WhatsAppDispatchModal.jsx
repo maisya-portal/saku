@@ -58,16 +58,17 @@ export default function WhatsAppDispatchModal({
   const message = isRole
     ? `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
       `Kepada Yth. *${recipientName}*\n` +
-      `Berikut adalah Tautan Masuk Resmi (Magic Link) Anda pada sistem Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
-      `Klik tautan di bawah ini:\n` +
+      `Berikut adalah *Tautan Masuk Resmi (Link Login Cepat)* Anda pada aplikasi Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
+      `👉 Link Login Cepat Aplikasi:\n` +
       `${magicLink}\n\n` +
-      `PIN Masuk Anda: *${pin}*\n` +
-      `` +
-      `Harap jaga kerahasiaan tautan dan PIN ini.`
+      `🔑 PIN / Sandi Keamanan: *${pin}*\n\n` +
+      `Cukup klik link di atas untuk langsung membuka aplikasi sesuai hak akses role & jabatan Anda.\n` +
+      `Harap jaga kerahasiaan tautan dan PIN ini.\n\n` +
+      `Wassalamu'alaikum Warahmatullahi Wabarakatuh.`
     : `Assalamu'alaikum Warahmatullahi Wabarakatuh.\n\n` +
       `Kepada Yth. Bapak/Ibu *${recipientName}*\n` +
-      `Berikut adalah Tautan Portal Keuangan Santri Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
-      `Klik tautan di bawah ini:\n` +
+      `Berikut adalah *Tautan Portal Keuangan Santri (Link Login Cepat)* Maisya-Saku Ma'had Imam Syafi'i Brebes:\n\n` +
+      `👉 Link Login Cepat Portal:\n` +
       `${magicLink}\n\n` +
       `PIN Masuk: *${pin || '1234'}* (Wali masuk langsung via link tanpa biometrik)\n\n` +
       `Melalui tautan ini Anda dapat memantau saldo realtime, membatasi jajan ananda, dan konfirmasi transfer uang saku.\n` +

@@ -23,10 +23,10 @@ function MainContent() {
 
   return (
     <AutoLockGuard>
-      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors">
+      <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors w-full max-w-full overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
         {currentRole === 'admin' && <RoleAdminBendahara />}
         {currentRole === 'kantin' && <RolePetugasKantin />}
         {currentRole === 'laundry' && <RolePetugasLaundry />}

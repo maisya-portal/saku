@@ -78,6 +78,9 @@ export default function RoleAdminBendahara() {
     topupRequests,
     approveTopup,
     rejectTopup,
+    deleteTopupRequest,
+    editTopupRequest,
+    purgeOrphanTopups,
     approveFingerprint,
     approveAllPendingFingerprints,
     rejectFingerprint,
@@ -120,6 +123,12 @@ export default function RoleAdminBendahara() {
   const [biometricSearch, setBiometricSearch] = useState('');
   const [editingBiometricSantri, setEditingBiometricSantri] = useState(null);
   const [deletingBiometricSantri, setDeletingBiometricSantri] = useState(null);
+
+  // Top-Up Approval Tab States (Terikat Wali, Edit & Hapus Antrean)
+  const [topupFilter, setTopupFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected' | 'orphan'
+  const [topupSearch, setTopupSearch] = useState('');
+  const [editingTopup, setEditingTopup] = useState(null);
+  const [deletingTopup, setDeletingTopup] = useState(null);
 
   const [biometricFilter, setBiometricFilter] = useState('all'); // 'all' | 'pending' | 'approved'
   const [biometricSubTab, setBiometricSubTab] = useState('wali'); // 'wali' | 'staff'
@@ -203,9 +212,46 @@ export default function RoleAdminBendahara() {
   const [fbConfig, setFbConfig] = useState(getSavedFirebaseConfig());
   const [demoState, setDemoState] = useState(isDemoMode());
 
-  // Filter topups
-  const pendingTopups = topupRequests.filter(t => t.status === 'PENDING');
-  const pastTopups = topupRequests.filter(t => t.status !== 'PENDING');
+  // Top-Up Lists & Status Filtering
+  const pendingTopups = useMemo(() => topupRequests.filter(t => t.status === 'PENDING'), [topupRequests]);
+  const approvedTopups = useMemo(() => topupRequests.filter(t => t.status === 'APPROVED'), [topupRequests]);
+  const rejectedTopups = useMemo(() => topupRequests.filter(t => t.status === 'REJECTED'), [topupRequests]);
+  const pastTopups = useMemo(() => topupRequests.filter(t => t.status !== 'PENDING'), [topupRequests]);
+
+  // Antrean Yatim (Akun wali atau santrinya sudah terhapus dari sistem)
+  const orphanTopups = useMemo(() => {
+    const validSantriIds = new Set(santriList.map(s => s.id));
+    const validSantriNis = new Set(santriList.map(s => s.nis).filter(Boolean));
+    const validParentTokens = new Set(santriList.map(s => s.parentToken).filter(Boolean));
+
+    return topupRequests.filter(t => {
+      const matchId = t.santriId && validSantriIds.has(t.santriId);
+      const matchNis = t.santriNis && validSantriNis.has(t.santriNis);
+      const matchParent = t.parentToken && validParentTokens.has(t.parentToken);
+      return !matchId && !matchNis && !matchParent;
+    });
+  }, [topupRequests, santriList]);
+
+  // Antrean Terfilter Berdasarkan Tab Filter & Search
+  const filteredTopups = useMemo(() => {
+    let list = topupRequests;
+    if (topupFilter === 'pending') list = pendingTopups;
+    else if (topupFilter === 'approved') list = approvedTopups;
+    else if (topupFilter === 'rejected') list = rejectedTopups;
+    else if (topupFilter === 'orphan') list = orphanTopups;
+
+    if (!topupSearch || !topupSearch.trim()) return list;
+    const term = topupSearch.toLowerCase().trim();
+    return list.filter(t => 
+      (t.santriName || '').toLowerCase().includes(term) ||
+      (t.santriNis || '').toLowerCase().includes(term) ||
+      (t.parentName || '').toLowerCase().includes(term) ||
+      (t.parentPhone || '').includes(term) ||
+      (t.bankTarget || '').toLowerCase().includes(term) ||
+      String(t.uniqueCode || '').includes(term) ||
+      String(t.amount || '').includes(term)
+    );
+  }, [topupRequests, topupFilter, topupSearch, pendingTopups, approvedTopups, rejectedTopups, orphanTopups]);
 
   // KPI Calculations
   const totalSantriBalance = santriList.reduce((sum, s) => sum + (s.balance || 0), 0);
@@ -458,7 +504,7 @@ export default function RoleAdminBendahara() {
         <button
           type="button"
           onClick={() => setActiveAdminTab('approvals')}
-          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap ${
+          className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap flex items-center gap-1.5 ${
             activeAdminTab === 'approvals'
               ? 'bg-sky-700 text-white shadow-sm'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
@@ -466,8 +512,13 @@ export default function RoleAdminBendahara() {
         >
           <span>📥 Persetujuan Top-Up</span>
           {pendingTopups.length > 0 && (
-            <span className="ml-2 bg-amber-400 text-slate-900 dark:text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+            <span className="bg-amber-400 text-slate-900 text-[10px] font-black px-2 py-0.5 rounded-full">
               {pendingTopups.length}
+            </span>
+          )}
+          {orphanTopups.length > 0 && (
+            <span className="bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full" title={`${orphanTopups.length} antrean akun terhapus`}>
+              {orphanTopups.length}
             </span>
           )}
         </button>
@@ -1611,95 +1662,285 @@ export default function RoleAdminBendahara() {
         </div>
       )}
 
-      {/* TAB 3: PERSETUJUAN TOP-UP */}
+      {/* TAB 3: PERSETUJUAN TOP-UP (TERIKAT AKUN WALI, EDIT & HAPUS ANTREAN) */}
       {activeAdminTab === 'approvals' && (
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 transition-colors shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
             <div>
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                Antrean Konfirmasi Transfer Uang Saku Santri
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Verifikasi bukti transfer dari wali santri dan setujui untuk mendebit saldo secara otomatis
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Antrean Konfirmasi Transfer Uang Saku Santri
+                </h3>
+                <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                  {pendingTopups.length} Menunggu Persetujuan
+                </span>
+                {orphanTopups.length > 0 && (
+                  <span className="bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{orphanTopups.length} Akun Wali Terhapus</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Verifikasi bukti transfer dari wali santri dan setujui untuk mendebit saldo santri secara otomatis. Antrean terikat langsung dengan data akun wali santri.
               </p>
             </div>
-            <span className="bg-amber-100 text-amber-900 text-xs font-bold px-3 py-1 rounded-full">
-              {pendingTopups.length} Menunggu Persetujuan
-            </span>
+
+            {orphanTopups.length > 0 && (
+              <button
+                type="button"
+                onClick={() => purgeOrphanTopups()}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer self-start sm:self-center active:scale-95"
+                title="Hapus semua data antrean yang akun wali atau santrinya sudah tidak ada di sistem"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Bersihkan {orphanTopups.length} Antrean Yatim</span>
+              </button>
+            )}
           </div>
 
-          {pendingTopups.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs">
-              Semua konfirmasi transfer telah selesai diverifikasi. Tidak ada antrean baru.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {pendingTopups.map((topup) => (
-                <div key={topup.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProofUrl(topup.proofImageUrl)}
-                      className="relative group shrink-0"
-                    >
-                      <img
-                        src={topup.proofImageUrl}
-                        alt="Bukti Transfer"
-                        className="w-16 h-16 rounded-xl object-cover border border-slate-300 group-hover:opacity-80"
-                      />
-                      <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 rounded-xl transition-opacity">
-                        <Eye className="w-4 h-4" />
-                      </span>
-                    </button>
-
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">{topup.santriName}</h4>
-                        <span className="bg-slate-100 text-slate-700 text-[10px] font-mono px-2 py-0.5 rounded">
-                          NIS: {topup.santriNis}
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-600 mt-0.5">
-                        Wali: <strong className="text-slate-800">{topup.parentName}</strong> ({topup.parentPhone})
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        Tujuan: <strong>{topup.bankTarget}</strong> • Kode Unik: <strong>{topup.uniqueCode}</strong>
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        Diajukan: {formatDateTime(topup.createdAt)} {topup.note ? `• "${topup.note}"` : ''}
-                      </div>
-                    </div>
+          {/* Warning Banner if Orphan Topups Exist */}
+          {orphanTopups.length > 0 && (
+            <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 text-rose-900 dark:text-rose-200">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="text-xs font-bold">
+                    Perhatian: Ditemukan {orphanTopups.length} antrean dari akun wali/santri yang telah dihapus
                   </div>
-
-                  <div className="flex items-center gap-3 self-end md:self-center">
-                    <div className="text-right">
-                      <div className="text-xs text-slate-400 font-semibold">Nominal Setoran</div>
-                      <div className="text-lg font-black text-sky-700">
-                        {formatRupiah(topup.amount)}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleReject(topup.id)}
-                        className="p-2.5 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold"
-                        title="Tolak Setoran"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(topup.id)}
-                        className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
-                      >
-                        <Check className="w-4 h-4" />
-                        <span>Setujui Setoran</span>
-                      </button>
-                    </div>
+                  <div className="text-[11px] text-rose-700 dark:text-rose-300 mt-0.5">
+                    Data antrean ini (termasuk transfer yang akun walinya sudah Anda hapus) masih tersimpan di antrean. Anda dapat menghapus data ini sekarang agar tidak terus muncul, atau mengeditnya untuk dihubungkan ke santri lain.
                   </div>
                 </div>
-              ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => purgeOrphanTopups()}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 self-start md:self-center shrink-0 cursor-pointer shadow-xs active:scale-95 transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Hapus Semua Antrean Yatim</span>
+              </button>
+            </div>
+          )}
+
+          {/* Filter Pills & Search Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setTopupFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  topupFilter === 'all'
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                Semua ({topupRequests.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTopupFilter('pending')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  topupFilter === 'pending'
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                }`}
+              >
+                Menunggu ({pendingTopups.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTopupFilter('approved')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  topupFilter === 'approved'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300'
+                }`}
+              >
+                Disetujui ({approvedTopups.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setTopupFilter('rejected')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  topupFilter === 'rejected'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300'
+                }`}
+              >
+                Ditolak ({rejectedTopups.length})
+              </button>
+              {orphanTopups.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setTopupFilter('orphan')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 ${
+                    topupFilter === 'orphan'
+                      ? 'bg-rose-700 text-white shadow-sm'
+                      : 'bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/40 text-rose-900 dark:text-rose-200'
+                  }`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Akun Terhapus ({orphanTopups.length})</span>
+                </button>
+              )}
+            </div>
+
+            <div className="relative w-full md:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari santri, wali, NIS, bank..."
+                value={topupSearch}
+                onChange={(e) => setTopupSearch(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+              {topupSearch && (
+                <button
+                  type="button"
+                  onClick={() => setTopupSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Topup List Items */}
+          {filteredTopups.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              {topupSearch ? 'Tidak ada antrean top-up yang sesuai dengan pencarian.' : 'Tidak ada antrean konfirmasi transfer pada kategori ini.'}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredTopups.map((topup) => {
+                const linkedSantri = santriList.find(s => s.id === topup.santriId || (s.nis && s.nis === topup.santriNis));
+                const isOrphan = !linkedSantri || !linkedSantri.parentToken;
+
+                return (
+                  <div key={topup.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedProofUrl(topup.proofImageUrl)}
+                        className="relative group shrink-0 cursor-pointer"
+                        title="Klik untuk melihat bukti transfer penuh"
+                      >
+                        <img
+                          src={topup.proofImageUrl}
+                          alt="Bukti Transfer"
+                          className="w-16 h-16 rounded-xl object-cover border border-slate-200 dark:border-slate-700 group-hover:opacity-80 transition-opacity"
+                        />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 group-hover:opacity-100 rounded-xl transition-opacity">
+                          <Eye className="w-4 h-4" />
+                        </span>
+                      </button>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-slate-900 dark:text-white text-sm">
+                            {topup.santriName || linkedSantri?.name || 'Santri Tidak Dikenal'}
+                          </h4>
+                          <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded">
+                            NIS: {topup.santriNis || linkedSantri?.nis || '-'}
+                          </span>
+                          {/* Status Badge */}
+                          {topup.status === 'PENDING' && (
+                            <span className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              Menunggu
+                            </span>
+                          )}
+                          {topup.status === 'APPROVED' && (
+                            <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              Disetujui
+                            </span>
+                          )}
+                          {topup.status === 'REJECTED' && (
+                            <span className="bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              Ditolak
+                            </span>
+                          )}
+                          {/* Orphan Badge */}
+                          {isOrphan && (
+                            <span className="bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>Akun Wali/Santri Telah Dihapus</span>
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-slate-600 dark:text-slate-300">
+                          Wali: <strong className="text-slate-800 dark:text-slate-200">{topup.parentName || '-'}</strong> ({topup.parentPhone || '-'})
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          Tujuan: <strong>{topup.bankTarget || 'Bank Syariah Indonesia'}</strong> • Kode Unik: <strong>{topup.uniqueCode || 0}</strong>
+                        </div>
+                        <div className="text-[11px] text-slate-400">
+                          Diajukan: {formatDateTime(topup.createdAt)} {topup.note ? `• "${topup.note}"` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end md:self-center">
+                      <div className="text-right">
+                        <div className="text-xs text-slate-400 font-semibold">Nominal Setoran</div>
+                        <div className="text-lg font-black text-sky-700 dark:text-sky-400">
+                          {formatRupiah(topup.amount)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          Total Transfer: {formatRupiah(topup.totalTransfer || topup.amount)}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingTopup(topup)}
+                          className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold cursor-pointer transition-colors"
+                          title="Edit Data Transfer"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => setDeletingTopup(topup)}
+                          className="p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold cursor-pointer transition-colors"
+                          title="Hapus Antrean Top-up Permanen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+
+                        {/* Approve & Reject (If Pending) */}
+                        {topup.status === 'PENDING' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleReject(topup.id)}
+                              className="p-2.5 rounded-xl border border-rose-300 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-bold cursor-pointer transition-colors"
+                              title="Tolak Setoran"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(topup.id)}
+                              className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Setujui Setoran</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -4161,20 +4402,167 @@ export default function RoleAdminBendahara() {
         </div>
       )}
 
-      {/* MODAL: HAPUS / RESET BIOMETRIK SANTRI */}
-      {deletingBiometricSantri && (
+      {/* MODAL: EDIT DATA TOP-UP REQUEST */}
+      {editingTopup && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2 text-sky-600">
+                <Edit3 className="w-5 h-5" />
+                <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                  Edit Antrean Top-Up Santri
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingTopup(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const selectedSantriId = formData.get('santriId');
+                const matchedSantri = santriList.find(s => s.id === selectedSantriId);
+
+                await editTopupRequest(editingTopup.id, {
+                  amount: Number(formData.get('amount')) || editingTopup.amount,
+                  bankTarget: formData.get('bankTarget') || editingTopup.bankTarget,
+                  note: formData.get('note') || '',
+                  status: formData.get('status') || editingTopup.status,
+                  santriId: selectedSantriId || editingTopup.santriId,
+                  santriName: matchedSantri?.name || editingTopup.santriName,
+                  santriNis: matchedSantri?.nis || editingTopup.santriNis,
+                  parentName: matchedSantri?.parentName || editingTopup.parentName,
+                  parentPhone: matchedSantri?.parentPhone || editingTopup.parentPhone,
+                  parentToken: matchedSantri?.parentToken || editingTopup.parentToken || ''
+                });
+
+                setEditingTopup(null);
+              }}
+              className="space-y-4 text-xs"
+            >
+              {/* Pilih / Hubungkan ke Santri */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 dark:text-slate-300">
+                  Hubungkan ke Akun Santri
+                </label>
+                <select
+                  name="santriId"
+                  defaultValue={editingTopup.santriId}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value={editingTopup.santriId}>
+                    {editingTopup.santriName} (NIS: {editingTopup.santriNis || '-'}) {santriList.some(s => s.id === editingTopup.santriId) ? '✓ Terdaftar' : '⚠️ Akun Asli Terhapus'}
+                  </option>
+                  {santriList.filter(s => s.id !== editingTopup.santriId).map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} (NIS: {s.nis}) - Wali: {s.parentName || 'Belum ada wali'}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Gunakan dropdown ini jika akun santri/wali sebelumnya telah dihapus dan Anda ingin menghubungkan bukti transfer ini ke santri aktif lain.
+                </p>
+              </div>
+
+              {/* Nominal Setoran */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 dark:text-slate-300">
+                  Nominal Setoran (Rp)
+                </label>
+                <input
+                  type="number"
+                  name="amount"
+                  defaultValue={editingTopup.amount}
+                  required
+                  min="1000"
+                  step="1000"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              {/* Bank Tujuan */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 dark:text-slate-300">
+                  Rekening / Bank Tujuan
+                </label>
+                <input
+                  type="text"
+                  name="bankTarget"
+                  defaultValue={editingTopup.bankTarget}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 dark:text-slate-300">
+                  Status Antrean
+                </label>
+                <select
+                  name="status"
+                  defaultValue={editingTopup.status}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                  <option value="PENDING">Menunggu Persetujuan (PENDING)</option>
+                  <option value="APPROVED">Disetujui (APPROVED)</option>
+                  <option value="REJECTED">Ditolak (REJECTED)</option>
+                </select>
+              </div>
+
+              {/* Catatan */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-slate-700 dark:text-slate-300">
+                  Catatan dari Wali Santri
+                </label>
+                <textarea
+                  name="note"
+                  defaultValue={editingTopup.note || ''}
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingTopup(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  Simpan Perubahan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: HAPUS ANTREAN TOP-UP SECARA PERMANEN */}
+      {deletingTopup && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2 text-rose-600">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  Reset Data Biometrik
+                  Hapus Antrean Top-Up
                 </h3>
               </div>
               <button
                 type="button"
-                onClick={() => setDeletingBiometricSantri(null)}
+                onClick={() => setDeletingTopup(null)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -4182,21 +4570,23 @@ export default function RoleAdminBendahara() {
             </div>
 
             <div className="text-xs text-slate-600 dark:text-slate-300 space-y-3">
-              <p>Apakah Anda yakin ingin menghapus / mereset data biometrik untuk santri berikut?</p>
+              <p>Apakah Anda yakin ingin menghapus data antrean transfer top-up berikut secara permanen?</p>
               <div className="bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-2xl border border-rose-200 dark:border-rose-900/50 space-y-1 text-rose-950 dark:text-rose-200">
-                <div><strong>Nama Santri:</strong> {deletingBiometricSantri.name} ({deletingBiometricSantri.class})</div>
-                <div><strong>NIS:</strong> {deletingBiometricSantri.nis}</div>
-                <div><strong>Kode Saat Ini:</strong> {deletingBiometricSantri.biometricCode || deletingBiometricSantri.fingerprintCode || '-'}</div>
+                <div><strong>Nama Santri:</strong> {deletingTopup.santriName} (NIS: {deletingTopup.santriNis || '-'})</div>
+                <div><strong>Nama Wali:</strong> {deletingTopup.parentName || '-'} ({deletingTopup.parentPhone || '-'})</div>
+                <div><strong>Nominal Setoran:</strong> {formatRupiah(deletingTopup.amount)}</div>
+                <div><strong>Bank Tujuan:</strong> {deletingTopup.bankTarget}</div>
+                <div><strong>Status:</strong> {deletingTopup.status}</div>
               </div>
               <p className="text-[11px] text-slate-400">
-                Status biometrik akan dikembalikan ke <strong>"Belum Rekam"</strong>. Santri perlu merekam ulang sidik jarinya untuk dapat bertransaksi.
+                Data antrean ini akan dihapus permanen dari sistem dan tidak akan muncul kembali di tab antrean.
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setDeletingBiometricSantri(null)}
+                onClick={() => setDeletingTopup(null)}
                 className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 cursor-pointer"
               >
                 Batal
@@ -4204,12 +4594,12 @@ export default function RoleAdminBendahara() {
               <button
                 type="button"
                 onClick={async () => {
-                  await resetSantriBiometric(deletingBiometricSantri.id);
-                  setDeletingBiometricSantri(null);
+                  await deleteTopupRequest(deletingTopup.id);
+                  setDeletingTopup(null);
                 }}
                 className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 active:scale-95 transition-all cursor-pointer"
               >
-                Ya, Reset Biometrik
+                Ya, Hapus Permanen
               </button>
             </div>
           </div>

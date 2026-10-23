@@ -495,7 +495,7 @@ export function AppProvider({ children }) {
       });
 
       const unsubTopup = onSnapshot(collection(db, 'topups'), (snapshot) => {
-        const liveTopups = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const liveTopups = snapshot.docs.map(d => ({ ...d.data(), id: d.data()?.id || d.id, _docId: d.id }));
         setTopupRequests(liveTopups);
         try {
           localStorage.setItem('maisya_topups', JSON.stringify(liveTopups));
@@ -957,18 +957,36 @@ export function AppProvider({ children }) {
   const deleteSantri = useCallback(async (santriId) => {
     const target = santriList.find(s => s.id === santriId);
     const updated = santriList.filter(s => s.id !== santriId);
+    
+    // Cascade delete topup requests for this santri
+    const topupsToDelete = topupRequests.filter(t => t.santriId === santriId || (target?.nis && t.santriNis === target.nis));
+    const topupIdsToDelete = new Set(topupsToDelete.map(t => t.id));
+    const updatedTopups = topupRequests.filter(t => !topupIdsToDelete.has(t.id));
+
     setSantriList(updated);
-    broadcastState({ santriList: updated });
-    showToast(`Santri ${target?.name || ''} telah dihapus.`, 'info');
+    setTopupRequests(updatedTopups);
+    broadcastState({ santriList: updated, topupRequests: updatedTopups });
+    showToast(`Santri ${target?.name || ''} beserta antrean top-up terkait telah dihapus.`, 'info');
 
     if (!isDemoMode() && db) {
       try {
         await deleteDoc(doc(db, 'santri', santriId));
+        for (const t of topupsToDelete) {
+          if (t._docId) {
+            try { await deleteDoc(doc(db, 'topups', t._docId)); } catch (e) {}
+          }
+          try { await deleteDoc(doc(db, 'topups', t.id)); } catch (e) {}
+          const q = query(collection(db, 'topups'), where('id', '==', t.id));
+          const snap = await getDocs(q);
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref);
+          }
+        }
       } catch (err) {
         console.error('Error deleting santri on firestore:', err);
       }
     }
-  }, [santriList, broadcastState, showToast]);
+  }, [santriList, topupRequests, broadcastState, showToast]);
 
   // SUPER ADMIN: Update Pesantren Info
   const updatePesantrenInfo = useCallback((info) => {
@@ -1521,6 +1539,7 @@ export function AppProvider({ children }) {
     if (matches.length === 0) return;
 
     const parentName = matches[0]?.parentName || 'Wali Santri';
+    const parentPhone = matches[0]?.parentPhone || '';
     const idsToDelete = [];
     const docsToUnbind = [];
 
@@ -1553,10 +1572,24 @@ export function AppProvider({ children }) {
       updated = updated.map(s => unbindMap.has(s.id) ? unbindMap.get(s.id) : s);
     }
 
+    // CASCADE DELETE: Hapus semua top-up yang terkait dengan akun wali ini atau santrinya!
+    const allChildIds = new Set(matches.map(s => s.id));
+    const allChildNis = new Set(matches.map(s => s.nis).filter(Boolean));
+    const topupsToDelete = topupRequests.filter(t => 
+      t.parentToken === parentToken || 
+      allChildIds.has(t.santriId) ||
+      allChildNis.has(t.santriNis) ||
+      (parentPhone && t.parentPhone === parentPhone) ||
+      (t.parentName && parentName && t.parentName.trim().toLowerCase() === parentName.trim().toLowerCase())
+    );
+    const topupIdsToDelete = new Set(topupsToDelete.map(t => t.id));
+    const updatedTopups = topupRequests.filter(t => !topupIdsToDelete.has(t.id));
+
     setSantriList(updated);
-    broadcastState({ santriList: updated });
+    setTopupRequests(updatedTopups);
+    broadcastState({ santriList: updated, topupRequests: updatedTopups });
     playSound('beep');
-    showToast(`Pengajuan akun wali ${parentName} telah dihapus.`, 'info');
+    showToast(`Akun wali ${parentName} dan seluruh antrean top-up terkait telah dihapus.`, 'info');
 
     if (!isDemoMode() && db) {
       try {
@@ -1580,11 +1613,23 @@ export function AppProvider({ children }) {
             fingerprintApprovalNote: null
           });
         }
+        // Hapus juga dari Firestore koleksi topups
+        for (const t of topupsToDelete) {
+          if (t._docId) {
+            try { await deleteDoc(doc(db, 'topups', t._docId)); } catch (e) {}
+          }
+          try { await deleteDoc(doc(db, 'topups', t.id)); } catch (e) {}
+          const q = query(collection(db, 'topups'), where('id', '==', t.id));
+          const snap = await getDocs(q);
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref);
+          }
+        }
       } catch (err) {
         console.error('Error deleting wali account submission on Firestore:', err);
       }
     }
-  }, [santriList, broadcastState, showToast]);
+  }, [santriList, topupRequests, broadcastState, showToast]);
 
   // SUPER ADMIN: Update Data Akun Wali Santri & Santri Terkait
   const updateWaliAccount = useCallback(async (parentToken, { parentName, parentPhone, parentPassword, pin, children }) => {
@@ -2156,6 +2201,7 @@ export function AppProvider({ children }) {
       santriId: targetSantri.id,
       santriNis: targetSantri.nis,
       santriName: targetSantri.name,
+      parentToken: targetSantri.parentToken || '',
       parentName: targetSantri.parentName,
       parentPhone: targetSantri.parentPhone,
       bankTarget,
@@ -2188,13 +2234,17 @@ export function AppProvider({ children }) {
 
   // Approve Top-up Request
   const approveTopup = useCallback(async (topupId) => {
-    const request = topupRequests.find(t => t.id === topupId);
+    const request = topupRequests.find(t => t.id === topupId || t._docId === topupId);
     if (!request || request.status !== 'PENDING') return;
 
-    const targetSantri = santriList.find(s => s.id === request.santriId);
-    if (!targetSantri) return;
+    const targetSantri = santriList.find(s => s.id === request.santriId || (s.nis && s.nis === request.santriNis));
+    if (!targetSantri) {
+      playSound('error');
+      showToast(`Gagal menyetujui! Akun santri "${request.santriName || ''}" (NIS: ${request.santriNis || '-'}) tidak ditemukan atau akun walinya telah dihapus. Silakan hubungkan kembali melalui tombol Edit atau hapus antrean ini.`, 'error');
+      return;
+    }
 
-    const previousBalance = targetSantri.balance;
+    const previousBalance = targetSantri.balance || 0;
     const currentBalance = previousBalance + request.amount;
 
     const newTx = {
@@ -2222,7 +2272,7 @@ export function AppProvider({ children }) {
     });
 
     const updatedTopups = topupRequests.map(t => {
-      if (t.id === topupId) {
+      if (t.id === topupId || t._docId === topupId) {
         return { ...t, status: 'APPROVED', approvedAt: new Date().toISOString() };
       }
       return t;
@@ -2246,7 +2296,14 @@ export function AppProvider({ children }) {
     if (!isDemoMode() && db) {
       try {
         await updateDoc(doc(db, 'santri', targetSantri.id), { balance: currentBalance });
-        await updateDoc(doc(db, 'topups', topupId), { status: 'APPROVED', approvedAt: new Date().toISOString() });
+        if (request._docId) {
+          try {
+            await updateDoc(doc(db, 'topups', request._docId), { status: 'APPROVED', approvedAt: new Date().toISOString() });
+          } catch (e) {}
+        }
+        try {
+          await updateDoc(doc(db, 'topups', topupId), { status: 'APPROVED', approvedAt: new Date().toISOString() });
+        } catch (e) {}
         await addDoc(collection(db, 'transactions'), newTx);
       } catch (err) {
         console.error('Error updating firestore on approve:', err);
@@ -2256,14 +2313,16 @@ export function AppProvider({ children }) {
 
   // Reject Top-up Request
   const rejectTopup = useCallback(async (topupId, reason = 'Bukti transfer tidak valid') => {
+    let target = null;
     const updatedTopups = topupRequests.map(t => {
-      if (t.id === topupId) {
-        return {
+      if (t.id === topupId || t._docId === topupId) {
+        target = {
           ...t,
           status: 'REJECTED',
           rejectReason: reason,
           rejectedAt: new Date().toISOString()
         };
+        return target;
       }
       return t;
     });
@@ -2274,16 +2333,140 @@ export function AppProvider({ children }) {
 
     if (!isDemoMode() && db) {
       try {
-        await updateDoc(doc(db, 'topups', topupId), {
-          status: 'REJECTED',
-          rejectReason: reason,
-          rejectedAt: new Date().toISOString()
-        });
+        if (target?._docId) {
+          try {
+            await updateDoc(doc(db, 'topups', target._docId), {
+              status: 'REJECTED',
+              rejectReason: reason,
+              rejectedAt: new Date().toISOString()
+            });
+          } catch (e) {}
+        }
+        try {
+          await updateDoc(doc(db, 'topups', topupId), {
+            status: 'REJECTED',
+            rejectReason: reason,
+            rejectedAt: new Date().toISOString()
+          });
+        } catch (e) {}
       } catch (err) {
         console.error('Error rejecting topup on firestore:', err);
       }
     }
   }, [topupRequests, broadcastState, showToast]);
+
+  // DELETE TOP-UP REQUEST (HAPUS DATA ANTREAN SECARA PERMANEN)
+  const deleteTopupRequest = useCallback(async (topupId) => {
+    const target = topupRequests.find(t => t.id === topupId || t._docId === topupId);
+    const updated = topupRequests.filter(t => t.id !== topupId && t._docId !== topupId);
+    setTopupRequests(updated);
+    broadcastState({ topupRequests: updated });
+    playSound('beep');
+    showToast(`Antrean top-up santri "${target?.santriName || ''}" (${formatRupiah(target?.amount || 0)}) telah dihapus.`, 'info');
+
+    if (!isDemoMode() && db) {
+      try {
+        if (target?._docId) {
+          try { await deleteDoc(doc(db, 'topups', target._docId)); } catch (e) {}
+        }
+        try { await deleteDoc(doc(db, 'topups', topupId)); } catch (e) {}
+
+        const q = query(collection(db, 'topups'), where('id', '==', topupId));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await deleteDoc(d.ref);
+        }
+      } catch (err) {
+        console.error('Error deleting topup from Firestore:', err);
+      }
+    }
+  }, [topupRequests, broadcastState, showToast]);
+
+  // EDIT TOP-UP REQUEST (UBAH NOMINAL, BANK, SANTRI, ATAU CATATAN)
+  const editTopupRequest = useCallback(async (topupId, updatedFields) => {
+    let target = null;
+    const updated = topupRequests.map(t => {
+      if (t.id === topupId || t._docId === topupId) {
+        target = {
+          ...t,
+          ...updatedFields,
+          amount: updatedFields.amount !== undefined ? Number(updatedFields.amount) : t.amount,
+          totalTransfer: updatedFields.amount !== undefined ? (Number(updatedFields.amount) + (t.uniqueCode || 0)) : t.totalTransfer
+        };
+        return target;
+      }
+      return t;
+    });
+
+    setTopupRequests(updated);
+    broadcastState({ topupRequests: updated });
+    playSound('success');
+    showToast(`Data antrean top-up berhasil diperbarui!`, 'success');
+
+    if (!isDemoMode() && db && target) {
+      try {
+        if (target._docId) {
+          try { await updateDoc(doc(db, 'topups', target._docId), updatedFields); } catch (e) {}
+        }
+        try { await updateDoc(doc(db, 'topups', topupId), updatedFields); } catch (e) {}
+
+        const q = query(collection(db, 'topups'), where('id', '==', topupId));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          await updateDoc(d.ref, updatedFields);
+        }
+      } catch (err) {
+        console.error('Error updating topup in Firestore:', err);
+      }
+    }
+  }, [topupRequests, broadcastState, showToast]);
+
+  // BERSIHKAN SEMUA ANTREAN DARI AKUN WALI/SANTRI YANG SUDAH TERHAPUS (ORPHAN TOPUPS)
+  const purgeOrphanTopups = useCallback(async () => {
+    const validSantriIds = new Set(santriList.map(s => s.id));
+    const validSantriNis = new Set(santriList.map(s => s.nis).filter(Boolean));
+    const validParentTokens = new Set(santriList.map(s => s.parentToken).filter(Boolean));
+
+    const orphanTopups = topupRequests.filter(t => {
+      const matchId = t.santriId && validSantriIds.has(t.santriId);
+      const matchNis = t.santriNis && validSantriNis.has(t.santriNis);
+      const matchParent = t.parentToken && validParentTokens.has(t.parentToken);
+      return !matchId && !matchNis && !matchParent;
+    });
+
+    if (orphanTopups.length === 0) {
+      showToast('Tidak ada antrean yatim. Semua data terhubung dengan akun yang valid.', 'info');
+      return 0;
+    }
+
+    const orphanIds = new Set(orphanTopups.map(t => t.id));
+    const updated = topupRequests.filter(t => !orphanIds.has(t.id));
+
+    setTopupRequests(updated);
+    broadcastState({ topupRequests: updated });
+    playSound('beep');
+    showToast(`${orphanTopups.length} antrean dari akun wali/santri yang telah dihapus berhasil dibersihkan!`, 'success');
+
+    if (!isDemoMode() && db) {
+      try {
+        for (const orphan of orphanTopups) {
+          if (orphan._docId) {
+            try { await deleteDoc(doc(db, 'topups', orphan._docId)); } catch (e) {}
+          }
+          try { await deleteDoc(doc(db, 'topups', orphan.id)); } catch (e) {}
+          const q = query(collection(db, 'topups'), where('id', '==', orphan.id));
+          const snap = await getDocs(q);
+          for (const d of snap.docs) {
+            await deleteDoc(d.ref);
+          }
+        }
+      } catch (err) {
+        console.error('Error purging orphan topups on Firestore:', err);
+      }
+    }
+
+    return orphanTopups.length;
+  }, [topupRequests, santriList, broadcastState, showToast]);
 
   // Save Kantin Product
   const saveProduct = useCallback(async (productData) => {
@@ -2417,6 +2600,9 @@ export function AppProvider({ children }) {
     submitTopupRequest,
     approveTopup,
     rejectTopup,
+    deleteTopupRequest,
+    editTopupRequest,
+    purgeOrphanTopups,
     saveProduct,
     deleteProduct,
     paySppBill,
